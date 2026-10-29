@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Torneos de Clash Royale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--fondo:#151A3D;--panel:#1F2760;--linea:#34409A;--texto:#F4F1FF;--suave:#A9B0E6;--oro:#F7B733;--azul:#3D7BFF;--error:#FF9A9A;--ok:#6EE7A8;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.5 "Nunito",system-ui,sans-serif;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+main{max-width:1100px;margin:0 auto;padding:28px 0 56px}
+.angosto{max-width:520px;margin:0 auto}
+.rejilla{display:grid;gap:16px}
+.rejilla .panel{margin:0}
+@media (min-width:760px){
+  body{font-size:18px}
+  h1{font-size:2.4rem}
+  .rejilla{grid-template-columns:1fr 1fr}
+  .rejilla .clash{grid-row:span 2}
+}
+h1,h2,.copas{font-family:"Lilita One","Nunito",system-ui,sans-serif;font-weight:400;letter-spacing:.01em}
+h1{font-size:2rem;line-height:1.15;margin:0 0 6px}
+h2{font-size:1.25rem;margin:0 0 12px}
+.suave{color:var(--suave);margin:0 0 20px}
+.oculto{display:none!important}
+label{display:block;margin-bottom:14px;font-weight:700}
+input{display:block;width:100%;margin-top:6px;padding:12px;border:2px solid var(--linea);border-radius:10px;background:var(--fondo);color:var(--texto);font:inherit}
+input[readonly]{opacity:.65}
+button{font:inherit}
+.primario,.secundario,.google{padding:12px 18px;border-radius:10px;font-weight:700;cursor:pointer;border:0}
+.primario{width:100%;background:var(--oro);color:#2A1D00}
+.secundario{background:var(--panel);color:var(--texto);border:2px solid var(--linea)}
+.google{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1F1F1F;margin-top:8px}
+.google svg{width:20px;height:20px;flex:none}
+.cancelar{width:100%;margin-top:10px}
+button:disabled{opacity:.6;cursor:wait}
+:focus-visible{outline:3px solid var(--oro);outline-offset:2px}
+.msg{min-height:1.5em;margin:0 0 12px;color:var(--error)}
+.msg.ok{color:var(--ok)}
+.barra{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
+.panel{background:var(--panel);border:2px solid var(--linea);border-radius:14px;padding:18px;margin-bottom:16px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}
+dt{color:var(--suave)}
+dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.copas{font-size:3rem;line-height:1;color:var(--oro);margin:0}
+.etiqueta{color:var(--suave);margin:2px 0 16px}
+.rejilla .tabla-panel{grid-column:1/-1}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 6px;text-align:left;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-weight:700;font-size:.9em}
+.num{text-align:center;width:3.2em}
+tr.yo td{color:var(--oro)}
+td small{display:block;color:var(--suave)}
+td.accion{text-align:right;white-space:nowrap}
+.mini{padding:8px 14px;font-size:.9em}
+a.primario{display:block;text-align:center;text-decoration:none}
+dialog{background:var(--panel);color:var(--texto);border:2px solid var(--linea);border-radius:14px;padding:20px;width:min(92vw,360px);text-align:center}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+.vinculo{display:block;margin:2px 0 0 auto;background:none;border:0;color:var(--suave);text-decoration:underline;font-size:.8em;cursor:pointer;padding:0}
+.ya{color:var(--ok);font-weight:700}
+dialog input{text-align:center;font-size:.8em;margin:0 0 10px}
+.historial{list-style:none;margin:0;padding:0}
+.historial li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--linea)}
+.historial .fecha{color:var(--suave);font-size:.85em;white-space:nowrap}
+.historial b{color:var(--oro);font-weight:700}
+.qr{display:inline-block;background:#fff;padding:12px;border-radius:10px;margin:0 0 16px;line-height:0}
+
+/* --- Barra superior + menú hamburguesa --- */
+.topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--fondo);padding:10px 0 14px;margin-bottom:6px}
+.topbar h1{margin:0}
+.quien{margin:0;color:var(--suave);font-size:.9rem;overflow-wrap:anywhere}
+.hamb{flex:none;width:48px;height:48px;border-radius:12px;background:var(--panel);border:2px solid var(--linea);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;cursor:pointer;padding:0}
+.hamb span{display:block;width:22px;height:3px;border-radius:2px;background:var(--texto);transition:transform .2s,opacity .2s}
+.hamb[aria-expanded="true"] span:nth-child(1){transform:translateY(8px) rotate(45deg)}
+.hamb[aria-expanded="true"] span:nth-child(2){opacity:0}
+.hamb[aria-expanded="true"] span:nth-child(3){transform:translateY(-8px) rotate(-45deg)}
+.menu-fondo{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30}
+.menu{position:fixed;top:0;right:0;bottom:0;width:min(86vw,340px);z-index:40;background:var(--panel);border-left:2px solid var(--linea);padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s;overflow-y:auto}
+.menu.abierto{transform:none;visibility:visible;transition:transform .22s ease}
+.menu h2{margin:4px 0 8px;color:var(--suave);font-size:.95rem;letter-spacing:.06em;text-transform:uppercase}
+.menu .item{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px;border-radius:12px;border:2px solid transparent;background:transparent;color:var(--texto);font-weight:700;font-size:1.05rem;cursor:pointer}
+.menu .item:hover{background:var(--fondo)}
+.menu .item[aria-current="page"]{background:var(--fondo);border-color:var(--oro);color:var(--oro)}
+.menu .item .ico{font-size:1.4rem;width:1.8rem;text-align:center}
+.menu .pie{margin-top:auto;padding-top:12px;border-top:1px solid var(--linea)}
+.menu .pie .item{color:var(--error)}
+.pantalla{margin:0;min-height:calc(100vh - 130px);min-height:calc(100dvh - 130px)}
+.pantalla>h2,.pantalla>.barra>h2{display:none}
+.pantalla>.barra{justify-content:flex-end;margin-bottom:8px}
+@media (prefers-reduced-motion:reduce){.menu,.hamb span{transition:none}}
+</style>
+</head>
+<body>
+<main>
+
+  <section id="vista-carga" class="angosto">
+    <h1>Torneos de Clash Royale</h1>
+    <p class="suave">Cargando…</p>
+  </section>
+
+  <section id="vista-auth" class="angosto oculto">
+    <h1>Torneos de Clash Royale</h1>
+    <p class="suave">Entra con tu cuenta de Google para crear tu perfil, vincular tu tag de Supercell y competir.</p>
+    <p id="msg-auth" class="msg" role="status"></p>
+    <button type="button" class="google" id="btn-google">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      <span>Continuar con Google</span>
+    </button>
+  </section>
+
+  <section id="vista-registro" class="angosto oculto">
+    <h1>Completa tu registro</h1>
+    <p class="suave">Es tu primera vez aquí. Confirma tus datos para crear tu perfil.</p>
+    <form id="form-registro" novalidate>
+      <label>Nombre<input id="r-nombre" autocomplete="name"></label>
+      <label>Correo<input id="r-correo" type="email" readonly></label>
+      <label>Teléfono<input id="r-telefono" type="tel" autocomplete="tel" placeholder="3001234567"></label>
+      <p id="msg-registro" class="msg" role="status"></p>
+      <button class="primario" id="btn-registro">Crear mi perfil</button>
+      <button type="button" class="secundario cancelar" id="btn-cancelar">Cancelar</button>
+    </form>
+  </section>
+
+  <section id="vista-perfil" class="oculto">
+    <header class="topbar">
+      <div>
+        <h1 id="p-titulo">Clash Royale</h1>
+        <p id="p-nombre" class="quien">Mi perfil</p>
+      </div>
+      <button type="button" id="btn-menu" class="hamb" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-nav">
+        <span></span><span></span><span></span>
+      </button>
+    </header>
+
+    <div id="menu-fondo" class="menu-fondo oculto"></div>
+    <nav id="menu-nav" class="menu" aria-label="Secciones">
+      <h2>Menú</h2>
+      <button type="button" class="item" data-sec="clash"><span class="ico" aria-hidden="true">⚔️</span>Clash Royale</button>
+      <button type="button" class="item" data-sec="posiciones"><span class="ico" aria-hidden="true">🏆</span>Tabla de posiciones</button>
+      <button type="button" class="item" data-sec="historial"><span class="ico" aria-hidden="true">📜</span>Historial</button>
+      <button type="button" class="item" data-sec="creditos"><span class="ico" aria-hidden="true">🪙</span>Créditos</button>
+      <button type="button" class="item" data-sec="datos"><span class="ico" aria-hidden="true">👤</span>Mis datos</button>
+      <div class="pie">
+        <button type="button" id="btn-salir" class="item"><span class="ico" aria-hidden="true">🚪</span>Salir</button>
+      </div>
+    </nav>
+
+    <div class="panel pantalla clash" id="sec-clash">
+      <h2>Clash Royale</h2>
+      <div id="clash-vinculado" class="oculto">
+        <p class="copas" id="c-copas">–</p>
+        <p class="etiqueta">copas</p>
+        <dl>
+          <dt>Jugador</dt><dd id="c-nombre">–</dd>
+          <dt>Mejor marca</dt><dd id="c-mejor">–</dd>
+          <dt>Nivel</dt><dd id="c-nivel">–</dd>
+          <dt>Victorias / derrotas</dt><dd id="c-record">–</dd>
+          <dt>Clan</dt><dd id="c-clan">–</dd>
+          <dt>Arena</dt><dd id="c-arena">–</dd>
+        </dl>
+        <p id="msg-clash" class="msg" role="status"></p>
+      </div>
+      <form id="form-tag" novalidate>
+        <label>Tag de Supercell<input id="tag" placeholder="#2PP" autocapitalize="characters" autocomplete="off"></label>
+        <p id="msg-tag" class="msg" role="status"></p>
+        <button class="primario" id="btn-tag">Vincular tag</button>
+      </form>
+      <form id="form-enlace" class="oculto" novalidate>
+        <label>Tu enlace de amigo<input id="enlace" inputmode="url" placeholder="https://link.clashroyale.com/invite/friend/..." autocomplete="off"></label>
+        <p class="suave">En el juego: Social → Añadir amigos → Enviar enlace. Cópialo y pégalo aquí para que otros te agreguen con QR.</p>
+        <p id="msg-enlace" class="msg" role="status"></p>
+        <button class="primario" id="btn-enlace">Guardar enlace</button>
+      </form>
+      <div id="mi-qr-caja" class="oculto">
+        <p class="etiqueta">Tu QR: quien lo escanee te agrega como amigo</p>
+        <div id="mi-qr" class="qr"></div>
+      </div>
+    </div>
+
+    <div class="panel pantalla oculto" id="sec-posiciones">
+      <h2>Tabla de posiciones</h2>
+      <p class="suave">Las victorias solo cuentan entre jugadores que son amigos en Clash Royale.</p>
+      <p id="msg-tabla" class="msg" role="status"></p>
+      <table>
+        <thead><tr><th class="num">#</th><th>Jugador</th><th class="num">V</th><th></th></tr></thead>
+        <tbody id="tabla-cuerpo"></tbody>
+      </table>
+    </div>
+
+    <div class="panel pantalla oculto" id="sec-historial">
+      <div class="barra">
+        <h2>Historial</h2>
+        <button type="button" id="btn-actualizar" class="secundario mini">Actualizar</button>
+      </div>
+      <p id="msg-historial" class="msg" role="status"></p>
+      <ul id="historial-lista" class="historial"></ul>
+      <p id="historial-vacio" class="suave">Aún no hay batallas amistosas entre jugadores de la tabla.</p>
+    </div>
+
+    <div class="panel pantalla oculto" id="sec-creditos">
+      <h2>Créditos</h2>
+      <p class="copas" id="p-creditos">0</p>
+    </div>
+
+    <div class="panel pantalla oculto" id="sec-datos">
+      <h2>Mis datos</h2>
+      <dl>
+        <dt>Correo</dt><dd id="p-correo"></dd>
+        <dt>Teléfono</dt><dd id="p-telefono"></dd>
+      </dl>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="dlg-amigo">
+  <h2 id="dlg-nombre"></h2>
+  <p class="suave">Escanea este QR desde Clash Royale (Social → Añadir amigos → Escanear) o abre el enlace.</p>
+  <div id="qr" class="qr"></div>
+  <a id="dlg-enlace" class="primario" href="#" target="_blank" rel="noopener">Abrir en Clash Royale</a>
+  <input id="dlg-url" readonly aria-label="Enlace de amigo" style="margin-top:12px">
+  <button type="button" class="secundario" id="dlg-copiar" style="width:100%">Copiar enlace</button>
+  <button type="button" class="secundario" id="dlg-hecho" style="width:100%;margin-top:10px">Ya nos añadimos ✓</button>
+  <p class="suave" style="margin:12px 0 0;font-size:.85em">Si ya son amigos en el juego, no hace falta añadirse otra vez.</p>
+  <button type="button" class="secundario cancelar" id="dlg-cerrar">Cerrar</button>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBOytBkkPwF5Rw_du0iOCIhnFtotOjUUuE",
+  authDomain: "clash-royale-9e27b.firebaseapp.com",
+  databaseURL: "https://clash-royale-9e27b-default-rtdb.firebaseio.com",
+  projectId: "clash-royale-9e27b",
+  appId: "1:792347939788:web:9b92040c8975f4bb098369"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+const functions = firebase.functions();
+
+// Siempre pregunta con qué cuenta de Google quiere entrar.
+const proveedor = new firebase.auth.GoogleAuthProvider();
+proveedor.setCustomParameters({ prompt: "select_account" });
+
+const $ = (id) => document.getElementById(id);
+let tagCargado = null;
+let detener = [];
+let turno = 0;
+let perfilPrevio = {};
+let perfilActual = {};
+let ultimoSync = "";
+let qrPintado = "";
+let jugadoresActual = [];
+let yaJugaron = new Set();
+let amigosSet = new Set();
+let dialogoActual = null;
+
+function mostrar(vista) {
+  ["carga", "auth", "registro", "perfil"].forEach((v) => {
+    $("vista-" + v).classList.toggle("oculto", v !== vista);
+  });
+}
+
+function mensaje(id, texto, ok) {
+  const el = $(id);
+  el.textContent = texto || "";
+  el.classList.toggle("ok", Boolean(ok));
+}
+
+// 🔧 DEPURACIÓN: muestra el código real del error junto al mensaje. Cuando salgas a producción pon DEBUG = false.
+const DEBUG = true;
+function detalleError(e) {
+  if (!DEBUG) return "";
+  console.error(e);
+  return " [" + (e && (e.code || e.name) || "error") + ": " + String((e && e.message) || e).slice(0, 160) + "]";
+}
+
+function errorAuth(e) {
+  const mapa = {
+    "auth/operation-not-allowed": "El ingreso con Google no está activado en Firebase",
+    "auth/unauthorized-domain": "Este sitio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados)",
+    "auth/popup-blocked": "Tu navegador bloqueó la ventana de Google. Permite las ventanas emergentes e intenta de nuevo",
+    "auth/network-request-failed": "Sin conexión. Revisa tu internet e intenta de nuevo",
+    "auth/account-exists-with-different-credential": "Ese correo ya está registrado con otro método de ingreso",
+    "auth/too-many-requests": "Demasiados intentos. Espera un momento y prueba de nuevo"
+  };
+  return (mapa[e.code] || "No pudimos completar la acción. Intenta de nuevo") + detalleError(e);
+}
+
+// --- Entrar con Google ---
+$("btn-google").onclick = async () => {
+  mensaje("msg-auth", "");
+  $("btn-google").disabled = true;
+  try {
+    await auth.signInWithPopup(proveedor);
+  } catch (e) {
+    if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(e.code)) {
+      mensaje("msg-auth", errorAuth(e));
+    }
+  } finally {
+    $("btn-google").disabled = false;
+  }
+};
+
+// --- Menú hamburguesa: cada sección se abre a pantalla completa ---
+const SECCIONES = {
+  clash: "Clash Royale",
+  posiciones: "Tabla de posiciones",
+  historial: "Historial",
+  creditos: "Créditos",
+  datos: "Mis datos"
+};
+
+function menuAbierto() { return $("menu-nav").classList.contains("abierto"); }
+
+function abrirMenu() {
+  $("menu-fondo").classList.remove("oculto");
+  $("menu-nav").classList.add("abierto");
+  $("btn-menu").setAttribute("aria-expanded", "true");
+  $("btn-menu").setAttribute("aria-label", "Cerrar menú");
+  const activo = document.querySelector('#menu-nav .item[aria-current="page"]') || document.querySelector("#menu-nav .item");
+  if (activo) activo.focus();
+}
+
+function cerrarMenu(devolverFoco) {
+  $("menu-fondo").classList.add("oculto");
+  $("menu-nav").classList.remove("abierto");
+  $("btn-menu").setAttribute("aria-expanded", "false");
+  $("btn-menu").setAttribute("aria-label", "Abrir menú");
+  if (devolverFoco) $("btn-menu").focus();
+}
+
+function verSeccion(id) {
+  if (!SECCIONES[id]) id = "clash";
+  Object.keys(SECCIONES).forEach((k) => {
+    $("sec-" + k).classList.toggle("oculto", k !== id);
+  });
+  document.querySelectorAll("#menu-nav .item[data-sec]").forEach((b) => {
+    if (b.dataset.sec === id) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  $("p-titulo").textContent = SECCIONES[id];
+  window.scrollTo(0, 0);
+}
+
+$("btn-menu").onclick = () => (menuAbierto() ? cerrarMenu(true) : abrirMenu());
+$("menu-fondo").onclick = () => cerrarMenu(true);
+document.querySelectorAll("#menu-nav .item[data-sec]").forEach((b) => {
+  b.onclick = () => { verSeccion(b.dataset.sec); cerrarMenu(true); };
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && menuAbierto()) cerrarMenu(true);
+});
+
+$("btn-salir").onclick = () => { cerrarMenu(false); auth.signOut(); };
+$("btn-cancelar").onclick = () => auth.signOut();
+
+// --- Registro de jugador nuevo ---
+function prepararRegistro(user, p) {
+  perfilPrevio = p || {};
+  $("r-nombre").value = perfilPrevio.nombre || user.displayName || "";
+  $("r-correo").value = user.email || "";
+  $("r-telefono").value = perfilPrevio.telefono || "";
+  mensaje("msg-registro", "");
+}
+
+$("form-registro").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  mensaje("msg-registro", "");
+  const user = auth.currentUser;
+  if (!user) return;
+  const nombre = $("r-nombre").value.trim();
+  const telefono = $("r-telefono").value.replace(/[\s-]/g, "");
+  if (nombre.length < 2) return mensaje("msg-registro", "Escribe tu nombre");
+  if (!/^\+?[0-9]{7,15}$/.test(telefono)) return mensaje("msg-registro", "Escribe un teléfono válido, solo números");
+
+  $("btn-registro").disabled = true;
+  try {
+    const datos = { nombre, correo: (user.email || "").toLowerCase(), telefono };
+    if (!perfilPrevio.creadoEn) datos.creadoEn = firebase.database.ServerValue.TIMESTAMP;
+    await db.ref("users/" + user.uid).update(datos);
+    entrarPerfil(user);
+  } catch (e) {
+    mensaje("msg-registro", "No pudimos guardar tu perfil. Intenta de nuevo" + detalleError(e));
+  } finally {
+    $("btn-registro").disabled = false;
+  }
+});
+
+// --- Clash Royale ---
+async function traerClash(tag) {
+  try {
+    const r = await functions.httpsCallable("consultarJugador")({ tag });
+    return r.data;
+  } catch (e) {
+    const propio = e.code && e.code.startsWith("functions/") &&
+      !["functions/internal", "functions/unknown"].includes(e.code);
+    throw new Error((propio ? e.message : "No pudimos consultar Clash Royale. Intenta de nuevo") + detalleError(e));
+  }
+}
+
+async function cargarClash(tag) {
+  mensaje("msg-clash", "");
+  try {
+    const d = await traerClash(tag);
+    $("c-copas").textContent = d.copas;
+    $("c-nombre").textContent = d.nombre + " (" + d.tag + ")";
+    if (auth.currentUser) db.ref("jugadores/" + auth.currentUser.uid + "/nombreClash").set(d.nombre).catch((e) => console.error(e));
+    $("c-mejor").textContent = d.mejoresCopas;
+    $("c-nivel").textContent = d.nivel;
+    $("c-record").textContent = d.victorias + " / " + d.derrotas;
+    $("c-clan").textContent = d.clan || "Sin clan";
+    $("c-arena").textContent = d.arena || "–";
+  } catch (e) {
+    mensaje("msg-clash", e.message);
+  }
+}
+
+$("form-tag").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  mensaje("msg-tag", "");
+  const tag = "#" + $("tag").value.trim().toUpperCase().replace(/^#/, "");
+  $("btn-tag").disabled = true;
+  try {
+    const d = await traerClash(tag);
+    await db.ref("users/" + auth.currentUser.uid + "/tag").set(d.tag);
+  } catch (e) {
+    mensaje("msg-tag", e.message);
+  } finally {
+    $("btn-tag").disabled = false;
+  }
+});
+
+// --- Enlace de amigo y QR ---
+function extraerEnlace(texto) {
+  const m = String(texto).match(/https?:\/\/\S+/);
+  return m ? m[0] : "";
+}
+
+// Devuelve el tag (#XXXX) del enlace si es un enlace de amigo válido de Clash Royale; si no, null.
+function tagDeEnlace(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || u.hostname !== "link.clashroyale.com") return null;
+    if (!/friend/i.test(url)) return null;
+    const m = url.match(/[?&]tag=([0289PYLQGRJCUV]{3,15})/i);
+    return m ? "#" + m[1].toUpperCase() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+$("form-enlace").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  mensaje("msg-enlace", "");
+  const url = extraerEnlace($("enlace").value);
+  const tagEnlace = tagDeEnlace(url);
+  if (!tagEnlace) return mensaje("msg-enlace", "Ese no es un enlace de amigo de Clash Royale");
+  if (tagEnlace !== perfilActual.tag) return mensaje("msg-enlace", "Ese enlace es de otro jugador, no de tu tag " + perfilActual.tag);
+  $("btn-enlace").disabled = true;
+  try {
+    await db.ref("users/" + auth.currentUser.uid + "/enlace").set(url);
+    mensaje("msg-enlace", "Enlace guardado", true);
+  } catch (e) {
+    mensaje("msg-enlace", "No pudimos guardar el enlace. Intenta de nuevo" + detalleError(e));
+  } finally {
+    $("btn-enlace").disabled = false;
+  }
+});
+
+// Marca en NUESTRO sistema que los dos ya son amigos (se guarda en las dos direcciones).
+async function marcarAmigos(j) {
+  const yo = auth.currentUser;
+  if (!yo || !j || !j.uid || j.uid === yo.uid) return;
+  const t = firebase.database.ServerValue.TIMESTAMP;
+  const cambios = {};
+  cambios["amigos/" + yo.uid + "/" + j.uid] = t;
+  cambios["amigos/" + j.uid + "/" + yo.uid] = t;
+  try {
+    await db.ref().update(cambios);
+  } catch (e) {
+    mensaje("msg-publico", "No pudimos marcar la amistad" + detalleError(e));
+  }
+}
+
+function abrirAmigo(j) {
+  dialogoActual = j;
+  $("dlg-nombre").textContent = j.nombreClash || j.nombre || "Jugador";
+  $("dlg-enlace").href = j.enlace;
+  $("dlg-url").value = j.enlace;
+  $("dlg-copiar").textContent = "Copiar enlace";
+  const qr = $("qr");
+  qr.innerHTML = "";
+  new QRCode(qr, { text: j.enlace, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+  $("dlg-amigo").showModal();
+}
+$("dlg-cerrar").onclick = () => $("dlg-amigo").close();
+// Al abrir el enlace en Clash Royale, el juego los agrega como amigos: lo dejamos anotado.
+$("dlg-enlace").addEventListener("click", () => marcarAmigos(dialogoActual));
+// Para quien escaneó el QR o copió el enlace en vez de abrirlo desde aquí.
+$("dlg-hecho").onclick = async () => { await marcarAmigos(dialogoActual); $("dlg-amigo").close(); };
+$("dlg-copiar").onclick = async () => {
+  const url = $("dlg-url").value;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (e) {
+    $("dlg-url").select();
+    try { document.execCommand("copy"); } catch (x) { /* si no se puede, queda seleccionado para copiar a mano */ }
+  }
+  $("dlg-copiar").textContent = "¡Copiado!";
+};
+
+// --- Tabla de posiciones ---
+// Orden: más victorias primero; con empate, el que se registró antes. Con todos en 0 queda el orden de registro.
+function celda(texto, clase) {
+  const td = document.createElement("td");
+  if (clase) td.className = clase;
+  td.textContent = texto;
+  return td;
+}
+
+function pintarTabla(lista, miUid) {
+  lista.sort((a, b) => (b.victorias || 0) - (a.victorias || 0) || (a.creadoEn || 0) - (b.creadoEn || 0));
+  const cuerpo = $("tabla-cuerpo");
+  cuerpo.innerHTML = "";
+  lista.forEach((j, i) => {
+    const tr = document.createElement("tr");
+    if (j.uid === miUid) tr.className = "yo";
+    tr.appendChild(celda(i + 1, "num"));
+
+    const tdNombre = celda(j.nombreClash || j.nombre || "Jugador");
+    if (j.tag) {
+      const s = document.createElement("small");
+      s.textContent = j.tag;
+      tdNombre.appendChild(s);
+    }
+    tr.appendChild(tdNombre);
+    tr.appendChild(celda(j.victorias || 0, "num"));
+
+    const tdAccion = celda("", "accion");
+    if (j.uid === miUid) {
+      tdAccion.textContent = "Tú";
+    } else if (amigosSet.has(j.uid) || yaJugaron.has(j.uid)) {
+      // Amigos: quedó anotado en el sistema. Si no, pero ya hay una amistosa entre los dos, "Ya jugaron".
+      const ok = document.createElement("span");
+      ok.className = "ya";
+      ok.textContent = amigosSet.has(j.uid) ? "Ya son amigos ✓" : "Ya jugaron ✓";
+      tdAccion.appendChild(ok);
+      if (j.enlace && tagDeEnlace(j.enlace)) {
+        const v = document.createElement("button");
+        v.type = "button";
+        v.className = "vinculo";
+        v.textContent = "ver enlace";
+        v.onclick = () => abrirAmigo(j);
+        tdAccion.appendChild(v);
+      }
+    } else if (j.enlace && tagDeEnlace(j.enlace)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "secundario mini";
+      b.textContent = "Añadir";
+      b.onclick = () => abrirAmigo(j);
+      tdAccion.appendChild(b);
+    } else {
+      tdAccion.textContent = "Sin enlace";
+      tdAccion.style.color = "var(--suave)";
+    }
+    tr.appendChild(tdAccion);
+    cuerpo.appendChild(tr);
+  });
+}
+
+// --- Historial de batallas amistosas ---
+function pintarHistorial(lista, miUid) {
+  lista.sort((a, b) => b.fecha - a.fecha);
+  const ul = $("historial-lista");
+  ul.innerHTML = "";
+  $("historial-vacio").classList.toggle("oculto", lista.length > 0);
+  lista.forEach((h) => {
+    const li = document.createElement("li");
+    const txt = document.createElement("span");
+    const g = document.createElement("b");
+    g.textContent = h.ganadorNombre;
+    txt.append(g, " " + h.coronasGanador + "–" + h.coronasPerdedor + " " + h.perdedorNombre);
+    if (h.ganadorUid === miUid || h.perdedorUid === miUid) txt.style.fontWeight = "700";
+    const f = document.createElement("span");
+    f.className = "fecha";
+    f.textContent = new Date(h.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+    li.append(txt, f);
+    ul.appendChild(li);
+  });
+}
+
+async function actualizarTorneo(silencioso) {
+  if (!silencioso) mensaje("msg-historial", "Actualizando…", true);
+  $("btn-actualizar").disabled = true;
+  try {
+    await functions.httpsCallable("actualizarTorneo")();
+    if (!silencioso) mensaje("msg-historial", "Historial actualizado", true);
+  } catch (e) {
+    if (!silencioso) {
+      const propio = e.code && e.code.startsWith("functions/") &&
+        !["functions/internal", "functions/unknown"].includes(e.code);
+      mensaje("msg-historial", (propio ? e.message : "No pudimos actualizar. Intenta de nuevo") + detalleError(e));
+    }
+  } finally {
+    $("btn-actualizar").disabled = false;
+  }
+}
+$("btn-actualizar").onclick = () => actualizarTorneo(false);
+
+// Copia pública del perfil (sin correo ni teléfono) para que aparezca en la tabla.
+function sincronizarPublico(p, user) {
+  if (!p.nombre) return;
+  // creadoEn NO va en esta actualización: las reglas solo dejan escribirlo la primera vez, y si viaja
+  // aquí Firebase rechaza TODA la actualización (nombre, tag y enlace incluidos) desde la segunda vez.
+  const pub = { nombre: p.nombre, tag: p.tag || null, enlace: p.enlace || null };
+  const clave = JSON.stringify(pub) + "|" + (p.creadoEn || "");
+  if (clave === ultimoSync) return;
+  ultimoSync = clave;
+  const ref = db.ref("jugadores/" + user.uid);
+  ref.update(pub)
+    .then(() => {
+      if (!p.creadoEn) return null;
+      return ref.child("creadoEn").once("value").then((s) => (s.exists() ? null : ref.child("creadoEn").set(p.creadoEn)));
+    })
+    .catch((e) => {
+      ultimoSync = "";
+      mensaje("msg-tabla", "No pudimos publicar tu perfil en la tabla" + detalleError(e));
+    });
+}
+
+// --- Perfil ---
+function pintarPerfil(p, user) {
+  perfilActual = p;
+  sincronizarPublico(p, user);
+  $("form-enlace").classList.toggle("oculto", !p.tag);
+  if (document.activeElement !== $("enlace")) $("enlace").value = p.enlace || "";
+  $("btn-enlace").textContent = p.enlace ? "Actualizar enlace" : "Guardar enlace";
+  const enlaceOk = Boolean(p.enlace && tagDeEnlace(p.enlace));
+  $("mi-qr-caja").classList.toggle("oculto", !enlaceOk);
+  if (enlaceOk && p.enlace !== qrPintado) {
+    qrPintado = p.enlace;
+    $("mi-qr").innerHTML = "";
+    new QRCode($("mi-qr"), { text: p.enlace, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  }
+  $("p-nombre").textContent = p.nombre || "Mi perfil";
+  $("p-correo").textContent = p.correo || user.email;
+  $("p-telefono").textContent = p.telefono || "–";
+  const hayTag = Boolean(p.tag);
+  $("clash-vinculado").classList.toggle("oculto", !hayTag);
+  $("form-tag").classList.toggle("oculto", hayTag);
+  if (hayTag && p.tag !== tagCargado) {
+    tagCargado = p.tag;
+    cargarClash(p.tag);
+    actualizarTorneo(true);
+  }
+}
+
+function entrarPerfil(user) {
+  detener.forEach((f) => f());
+  detener = [];
+  tagCargado = null;
+  ultimoSync = "";
+  qrPintado = "";
+  amigosSet = new Set();
+  yaJugaron = new Set();
+  jugadoresActual = [];
+  verSeccion("clash");
+  cerrarMenu(false);
+  mostrar("perfil");
+  const refPerfil = db.ref("users/" + user.uid);
+  const refCred = db.ref("wallets/" + user.uid + "/creditos");
+  const refJug = db.ref("jugadores").orderByChild("creadoEn");
+  const a = refPerfil.on("value", (s) => pintarPerfil(s.val() || {}, user));
+  const b = refCred.on("value", (s) => { $("p-creditos").textContent = s.val() || 0; });
+  const c = refJug.on("value", (s) => {
+    const lista = [];
+    s.forEach((h) => { lista.push(Object.assign({ uid: h.key }, h.val())); });
+    mensaje("msg-tabla", "");
+    jugadoresActual = lista;
+    pintarTabla(lista.slice(), user.uid);
+  }, (e) => mensaje("msg-tabla", "No pudimos cargar la tabla. Revisa las reglas de la base de datos" + detalleError(e)));
+  const refAmigos = db.ref("amigos/" + user.uid);
+  const e = refAmigos.on("value", (s) => {
+    amigosSet = new Set(Object.keys(s.val() || {}));
+    if (jugadoresActual.length) pintarTabla(jugadoresActual.slice(), user.uid);
+  }, (err) => console.error(err));
+  const refHist = db.ref("historial").orderByChild("fecha").limitToLast(30);
+  const d = refHist.on("value", (s) => {
+    const lista = [];
+    s.forEach((h) => { lista.push(h.val()); });
+    yaJugaron = new Set();
+    lista.forEach((h) => {
+      if (h.ganadorUid === user.uid) yaJugaron.add(h.perdedorUid);
+      else if (h.perdedorUid === user.uid) yaJugaron.add(h.ganadorUid);
+    });
+    pintarHistorial(lista, user.uid);
+    if (jugadoresActual.length) pintarTabla(jugadoresActual.slice(), user.uid);
+  }, (e) => mensaje("msg-historial", "No pudimos cargar el historial. Revisa las reglas de la base de datos" + detalleError(e)));
+  detener.push(() => refPerfil.off("value", a), () => refCred.off("value", b), () => refJug.off("value", c), () => refHist.off("value", d), () => refAmigos.off("value", e));
+}
+
+// --- Qué pantalla mostrar al abrir la página ---
+// Sin sesión: botón de Google. Con sesión y perfil completo: perfil. Con sesión sin perfil: registro.
+auth.onAuthStateChanged(async (user) => {
+  const mio = ++turno;
+  detener.forEach((f) => f());
+  detener = [];
+  tagCargado = null;
+  if (!user) return mostrar("auth");
+
+  mostrar("carga");
+  let snap;
+  try {
+    snap = await db.ref("users/" + user.uid).once("value");
+  } catch (e) {
+    if (mio !== turno) return;
+    await auth.signOut();
+    mensaje("msg-auth", "No pudimos leer tu perfil. Intenta de nuevo" + detalleError(e));
+    return;
+  }
+  if (mio !== turno) return;
+
+  const p = snap.val();
+  if (!p || !p.nombre || !p.telefono) {
+    prepararRegistro(user, p);
+    return mostrar("registro");
+  }
+  entrarPerfil(user);
+});
+</script>
+</body>
+</html>
