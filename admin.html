@@ -85,6 +85,8 @@ label{display:block;font-weight:700;font-size:.9rem}
 label>*{margin-top:4px;font-weight:400}
 .cabecera-dlg{display:flex;align-items:center;gap:12px}
 .cabecera-dlg h2{margin:0;overflow-wrap:anywhere}
+.acciones-c{display:flex;gap:8px;margin-top:8px}
+.acciones-c .btn{flex:1;padding:10px}
 </style>
 </head>
 <body>
@@ -134,6 +136,7 @@ label>*{margin-top:4px;font-weight:400}
 
     <div class="tabs" role="tablist">
       <button type="button" class="tab activa" data-tab="cuentas" role="tab">Cuentas</button>
+      <button type="button" class="tab" data-tab="compras" role="tab">Compras<span id="n-compras"></span></button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
     </div>
 
@@ -157,6 +160,13 @@ label>*{margin-top:4px;font-weight:400}
         </select>
       </div>
       <ul class="lista" id="lista"></ul>
+    </section>
+
+    <section id="t-compras" class="oculto">
+      <div class="panel" style="padding:16px">
+        <h2>Solicitudes de créditos</h2>
+        <ul class="reg" id="compras"></ul>
+      </div>
     </section>
 
     <section id="t-registro" class="oculto">
@@ -273,6 +283,7 @@ async function cargar() {
   pintarStats();
   pintarLista();
   if (registroCargado) cargarRegistro();
+  cargarCompras();
 }
 $("btn-refrescar").onclick = async () => {
   const b = $("btn-refrescar"); b.disabled = true;
@@ -340,7 +351,9 @@ $("lista").addEventListener("click", (e) => {
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x === t));
   $("t-cuentas").classList.toggle("oculto", t.dataset.tab !== "cuentas");
+  $("t-compras").classList.toggle("oculto", t.dataset.tab !== "compras");
   $("t-registro").classList.toggle("oculto", t.dataset.tab !== "registro");
+  if (t.dataset.tab === "compras") cargarCompras();
   if (t.dataset.tab === "registro") cargarRegistro();
 }));
 
@@ -351,9 +364,45 @@ function textoAccion(r) {
     case "fijar": return "Fijó el saldo en " + num(r.monto) + " (antes " + num(r.antes) + ")";
     case "suspender": return "Suspendió la cuenta";
     case "reactivar": return "Reactivó la cuenta";
+    case "compra": return "Aprobó una compra de " + num(r.monto) + " créditos";
+    case "compra-rechazada": return "Rechazó una compra de " + num(r.monto) + " créditos";
     default: return r.accion || "";
   }
 }
+// ---------- Compras de créditos ----------
+let comprasAdmin = [];
+const ESTADO_C = { pendiente: "Pendiente", procesando: "Acreditando…", aprobada: "Aprobada", rechazada: "Rechazada" };
+async function cargarCompras() {
+  const ul = $("compras");
+  try {
+    const r = await llamar("adminCompras");
+    comprasAdmin = r.compras || [];
+    const pend = comprasAdmin.filter((c) => c.estado === "pendiente").length;
+    $("n-compras").textContent = pend ? " (" + pend + ")" : "";
+    ul.innerHTML = comprasAdmin.length ? comprasAdmin.map((c) =>
+      "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — " + num(c.creditos) + " créditos · $" + esc(c.usd) + " USD" +
+      "<small>" + esc(c.correo) + (c.tag ? " · " + esc(c.tag) : "") + " · " + esc(fecha(c.fecha)) + "</small>" +
+      '<span class="pill' + (c.estado === "rechazada" ? " mal" : c.estado === "pendiente" ? " adm" : "") + '">' + esc(ESTADO_C[c.estado] || c.estado) + "</span>" +
+      (c.estado === "pendiente"
+        ? '<div class="acciones-c"><button type="button" class="btn primario" data-resolver="' + esc(c.id) + '" data-aprobar="1">Aprobar y acreditar</button>' +
+          '<button type="button" class="btn peligro" data-resolver="' + esc(c.id) + '">Rechazar</button></div>'
+        : "") +
+      "</li>").join("") : '<li class="vacio">Todavía no hay solicitudes de compra.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+$("compras").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-resolver]");
+  if (!b) return;
+  const c = comprasAdmin.find((x) => x.id === b.dataset.resolver);
+  if (!c) return;
+  const aprobar = !!b.dataset.aprobar;
+  const quien = c.nombre || c.correo;
+  if (!confirm(aprobar ? "¿Ya recibiste el pago de $" + c.usd + " USD de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
+  b.disabled = true;
+  try { await llamar("adminResolverCompra", { id: c.id, aprobar }); await cargar(); }
+  catch (e) { alert(msgErr(e)); b.disabled = false; }
+});
+
 async function cargarRegistro() {
   registroCargado = true;
   const ul = $("registro");
