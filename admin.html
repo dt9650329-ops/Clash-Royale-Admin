@@ -380,7 +380,7 @@ async function cargarCompras() {
     const pend = comprasAdmin.filter((c) => c.estado === "pendiente").length;
     $("n-compras").textContent = pend ? " (" + pend + ")" : "";
     ul.innerHTML = comprasAdmin.length ? comprasAdmin.map((c) =>
-      "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — " + num(c.creditos) + " créditos · $" + esc(c.usd) + " USD" +
+      "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — " + num(c.creditos) + " créditos · " + esc(c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD") +
       "<small>" + esc(c.correo) + (c.tag ? " · " + esc(c.tag) : "") + " · " + esc(fecha(c.fecha)) + "</small>" +
       '<span class="pill' + (c.estado === "rechazada" ? " mal" : c.estado === "pendiente" ? " adm" : "") + '">' + esc(ESTADO_C[c.estado] || c.estado) + "</span>" +
       (c.estado === "pendiente"
@@ -397,7 +397,7 @@ $("compras").addEventListener("click", async (ev) => {
   if (!c) return;
   const aprobar = !!b.dataset.aprobar;
   const quien = c.nombre || c.correo;
-  if (!confirm(aprobar ? "¿Ya recibiste el pago de $" + c.usd + " USD de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
+  if (!confirm(aprobar ? "¿Ya recibiste el pago de " + (c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD") + " de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
   b.disabled = true;
   try { await llamar("adminResolverCompra", { id: c.id, aprobar }); await cargar(); }
   catch (e) { alert(msgErr(e)); b.disabled = false; }
