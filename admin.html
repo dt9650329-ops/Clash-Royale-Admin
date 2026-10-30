@@ -85,8 +85,34 @@ label{display:block;font-weight:700;font-size:.9rem}
 label>*{margin-top:4px;font-weight:400}
 .cabecera-dlg{display:flex;align-items:center;gap:12px}
 .cabecera-dlg h2{margin:0;overflow-wrap:anywhere}
+
+/* ---- Perfiles y créditos ---- */
+.pad{padding:16px}
+.perfil{padding:14px;border-radius:14px;border:2px solid var(--linea);background:rgba(12,26,69,.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.p-cab{display:flex;align-items:center;gap:12px}
+.p-datos{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0;font-size:.95em}
+.p-datos dt{color:var(--suave)}
+.p-datos dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.p-acc{display:flex;gap:8px}
+.p-acc .btn{flex:1;padding:10px 8px}
+.resultados{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.sel{padding:12px;border-radius:14px;border:2px solid var(--cian);background:rgba(41,221,251,.06);margin-bottom:14px}
+.sel-fila{display:flex;align-items:center;gap:12px}
+.sel-pie{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea)}
+.sel .saldo{font-family:"Lilita One",system-ui,sans-serif;font-size:1.5rem;color:var(--oro);line-height:1.1}
+.sel .btn{flex:none;padding:8px 12px;font-size:.9rem}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;max-width:min(92vw,420px);padding:12px 16px;border-radius:12px;background:var(--panel);border:2px solid var(--error);box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:center}
+.toast.ok{border-color:var(--ok)}
+.tabs{flex-wrap:wrap}
+.tab{flex:1 1 28%;padding:9px 4px;font-size:.92rem;white-space:nowrap}
 .acciones-c{display:flex;gap:8px;margin-top:8px}
-.acciones-c .btn{flex:1;padding:10px}
+.acciones-c .btn{flex:1;padding:10px 8px}
+.reg li b+small,.reg li small+small{margin-top:2px}
+.dos{align-items:end}
+.mega-saldo .num-grande{font-size:2.3rem;margin:2px 0}
+.mega-saldo small{display:block;color:var(--suave)}
+.mas{color:var(--ok);font-weight:700}
+.menos{color:var(--error);font-weight:700}
 </style>
 </head>
 <body>
@@ -101,7 +127,7 @@ label>*{margin-top:4px;font-weight:400}
   <section id="v-login" class="centro oculto">
     <div class="logo-hero" role="img" aria-label="Legion Clash"></div>
     <h1>Administración</h1>
-    <p class="suave">Entra con la cuenta de Google de administrador.</p>
+    <p class="suave">Entra con la cuenta de Google de administrador para ver los perfiles y cargar créditos.</p>
     <button type="button" class="google" id="btn-google">
       <svg viewBox="0 0 48 48" aria-hidden="true">
         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -109,7 +135,7 @@ label>*{margin-top:4px;font-weight:400}
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       </svg>
-      <span>Continuar con Google</span>
+      <span>Iniciar sesión con Google</span>
     </button>
     <p id="msg-login" class="msg" role="status"></p>
     <button type="button" class="btn oculto" id="btn-otra">Entrar con otra cuenta</button>
@@ -135,12 +161,15 @@ label>*{margin-top:4px;font-weight:400}
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" class="tab activa" data-tab="cuentas" role="tab">Cuentas</button>
+      <button type="button" class="tab activa" data-tab="perfiles" role="tab">Perfiles</button>
+      <button type="button" class="tab" data-tab="creditos" role="tab">Créditos</button>
       <button type="button" class="tab" data-tab="compras" role="tab">Compras<span id="n-compras"></span></button>
+      <button type="button" class="tab" data-tab="retiros" role="tab">Retiros<span id="n-retiros"></span></button>
+      <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
     </div>
 
-    <section id="t-cuentas">
+    <section id="t-perfiles">
       <input id="buscar" type="search" placeholder="Buscar por nombre, correo, tag o teléfono" autocomplete="off">
       <div class="filtros" id="filtros">
         <button type="button" class="chip activa" data-f="todos">Todas</button>
@@ -162,56 +191,112 @@ label>*{margin-top:4px;font-weight:400}
       <ul class="lista" id="lista"></ul>
     </section>
 
+    <section id="t-creditos" class="oculto">
+      <div class="panel pad">
+        <h2>Cargar créditos</h2>
+        <p class="suave">Busca la cuenta, escribe el monto y aplícalo. Todo queda anotado en el registro.</p>
+
+        <div id="c-busqueda">
+          <input id="c-buscar" type="search" placeholder="Buscar por nombre, correo o tag" autocomplete="off" aria-label="Buscar cuenta">
+          <ul class="resultados" id="c-resultados"></ul>
+        </div>
+
+        <div id="c-sel" class="sel oculto"></div>
+
+        <div id="c-form" class="oculto">
+          <div class="dos">
+            <label>Acción
+              <select id="c-modo">
+                <option value="sumar">Cargar (sumar)</option>
+                <option value="restar">Quitar (restar)</option>
+                <option value="fijar">Fijar saldo en</option>
+              </select>
+            </label>
+            <label>Monto
+              <input id="c-monto" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+            </label>
+          </div>
+          <div class="filtros" id="c-rapidos" aria-label="Montos rápidos"></div>
+          <label>Motivo (opcional)
+            <input id="c-motivo" maxlength="120" placeholder="Ej. premio del torneo">
+          </label>
+          <button type="button" class="btn primario ancho" id="c-aplicar" style="margin-top:12px">Cargar créditos</button>
+        </div>
+        <p id="c-msg" class="msg" role="status"></p>
+      </div>
+    </section>
+
     <section id="t-compras" class="oculto">
-      <div class="panel" style="padding:16px">
+      <div class="panel pad">
         <h2>Solicitudes de créditos</h2>
+        <p class="suave">Aprueba solo después de recibir el pago. Al aprobar se acreditan los créditos al jugador.</p>
         <ul class="reg" id="compras"></ul>
       </div>
     </section>
 
+    <section id="t-retiros" class="oculto">
+      <div class="panel pad">
+        <h2>Retiros</h2>
+        <p class="suave">Envía el pago por fuera (Nequi, etc.) y luego márcalo como pagado. Si lo rechazas, se devuelven los créditos completos.</p>
+        <ul class="reg" id="retiros"></ul>
+      </div>
+    </section>
+
+    <section id="t-mega" class="oculto">
+      <div class="panel pad mega-saldo">
+        <h2>Mega Legión</h2>
+        <p class="suave">La alcancía del premio de la tabla de clasificación. Se llena con un porcentaje de cada recarga aprobada y pasa al saldo una vez al día. Al jugador no se le descuenta nada.</p>
+        <small>Saldo de la alcancía</small>
+        <div class="num-grande" id="m-saldo">$0 COP</div>
+        <small id="m-resumen"></small>
+      </div>
+
+      <div class="panel pad" style="margin-top:12px">
+        <h2>Porcentaje que entra</h2>
+        <p class="suave">Qué parte del valor de cada recarga aprobada va a la alcancía. Ej.: con 3%, de una recarga de $12.500 entran $375. Al jugador no se le descuenta nada. En 0 no entra nada.</p>
+        <div class="dos">
+          <label>% de cada recarga
+            <input id="m-pct" type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="0">
+          </label>
+          <button type="button" class="btn primario" id="m-guardar">Guardar</button>
+        </div>
+      </div>
+
+      <div class="panel pad" style="margin-top:12px">
+        <h2>Registrar movimiento</h2>
+        <div class="dos">
+          <label>Tipo
+            <select id="m-tipo">
+              <option value="aporte">Aportar a la alcancía</option>
+              <option value="premio">Pagar premio (sacar)</option>
+            </select>
+          </label>
+          <label>Monto (COP)
+            <input id="m-monto" type="number" inputmode="numeric" min="1" step="1" placeholder="0">
+          </label>
+        </div>
+        <label>Nota
+          <input id="m-nota" maxlength="120" placeholder="Ej. premio semana 1: ganador Diego">
+        </label>
+        <button type="button" class="btn primario ancho" id="m-aplicar" style="margin-top:12px">Registrar</button>
+        <p id="m-msg" class="msg" role="status"></p>
+      </div>
+
+      <div class="panel pad" style="margin-top:12px">
+        <h2>Movimientos</h2>
+        <ul class="reg" id="m-lista"></ul>
+      </div>
+    </section>
+
     <section id="t-registro" class="oculto">
-      <div class="panel" style="padding:16px">
+      <div class="panel pad">
         <h2>Últimas acciones</h2>
         <ul class="reg" id="registro"></ul>
       </div>
     </section>
   </section>
 
-  <dialog id="dlg">
-    <div class="cabecera-dlg">
-      <div class="avatar" id="d-avatar"></div>
-      <h2 id="d-nombre"></h2>
-    </div>
-    <div id="d-pills"></div>
-    <dl id="d-datos"></dl>
-
-    <div class="bloque">
-      <h2>Créditos</h2>
-      <div class="dos">
-        <label>Acción
-          <select id="d-modo">
-            <option value="sumar">Sumar</option>
-            <option value="restar">Restar</option>
-            <option value="fijar">Fijar saldo en</option>
-          </select>
-        </label>
-        <label>Monto
-          <input id="d-monto" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
-        </label>
-      </div>
-      <label>Motivo (opcional)
-        <input id="d-motivo" maxlength="120" placeholder="Ej. premio del torneo">
-      </label>
-      <button type="button" class="btn primario ancho" id="d-aplicar" style="margin-top:10px">Aplicar</button>
-    </div>
-
-    <div class="bloque">
-      <button type="button" class="btn ancho" id="d-estado"></button>
-    </div>
-
-    <p id="d-msg" class="msg" role="status"></p>
-    <button type="button" class="btn ancho" id="d-cerrar">Cerrar</button>
-  </dialog>
+  <div id="toast" class="toast oculto" role="status"></div>
 
 </main>
 
@@ -282,8 +367,9 @@ async function cargar() {
   cuentas = r.cuentas || [];
   pintarStats();
   pintarLista();
-  if (registroCargado) cargarRegistro();
   cargarCompras();
+  cargarRetiros();
+  if (registroCargado) cargarRegistro();
 }
 $("btn-refrescar").onclick = async () => {
   const b = $("btn-refrescar"); b.disabled = true;
@@ -298,7 +384,18 @@ function pintarStats() {
   $("s-cred").textContent = num(cuentas.reduce((t, c) => t + (c.creditos || 0), 0));
 }
 
-// ---------- Lista ----------
+// ---------- Avisos ----------
+let toastT = null;
+function aviso(texto, ok) {
+  const t = $("toast");
+  t.textContent = texto; t.className = "toast" + (ok ? " ok" : "");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.add("oculto"), 4500);
+}
+const inicial = (c) => (c.nombre || c.correo || "?").trim().charAt(0).toUpperCase();
+const pills = (c) => (c.esAdmin ? '<span class="pill adm">Admin</span> ' : "") +
+  (c.suspendido ? '<span class="pill mal">Suspendida</span> ' : "") + (!c.registrado ? '<span class="pill">Sin registro</span>' : "");
+
+// ---------- Perfiles ----------
 const FILTROS = {
   todos: () => true,
   tag: (c) => !!c.tag,
@@ -313,25 +410,33 @@ const ORDENES = {
   victorias: (a, b) => (b.victorias || 0) - (a.victorias || 0),
   nombre: (a, b) => (a.nombre || a.correo).localeCompare(b.nombre || b.correo, "es"),
 };
+const coincide = (c, q) => [c.nombre, c.correo, c.tag, c.telefono, c.uid].some((x) => String(x || "").toLowerCase().includes(q));
+
+function tarjeta(c) {
+  const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v || "—") + "</dd>";
+  const enlace = c.enlace
+    ? '<a style="color:var(--cian)" href="' + esc(c.enlace) + '" target="_blank" rel="noopener noreferrer">Abrir enlace</a>'
+    : "—";
+  return '<li class="perfil">' +
+    '<div class="p-cab"><span class="avatar">' + esc(inicial(c)) + '</span>' +
+    '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small></span>' +
+    '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + pills(c) + '</span></div>' +
+    '<dl class="p-datos">' +
+      fila("Teléfono", c.telefono) + fila("Tag", c.tag) + "<dt>Enlace de amigo</dt><dd>" + enlace + "</dd>" +
+      fila("Victorias", num(c.victorias)) + fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid) +
+    '</dl>' +
+    '<div class="p-acc">' +
+      '<button type="button" class="btn primario" data-acc="creditos" data-uid="' + esc(c.uid) + '">Cargar créditos</button>' +
+      '<button type="button" class="btn' + (c.suspendido ? "" : " peligro") + '" data-acc="estado" data-uid="' + esc(c.uid) + '"' + (c.esAdmin ? " disabled" : "") + '>' + (c.suspendido ? "Reactivar" : "Suspender") + '</button>' +
+    '</div></li>';
+}
 
 function pintarLista() {
   const q = busqueda.trim().toLowerCase();
-  const filas = cuentas
-    .filter(FILTROS[filtro])
-    .filter((c) => !q || [c.nombre, c.correo, c.tag, c.telefono, c.uid].some((x) => String(x || "").toLowerCase().includes(q)))
-    .sort(ORDENES[orden]);
+  const filas = cuentas.filter(FILTROS[filtro]).filter((c) => !q || coincide(c, q)).sort(ORDENES[orden]);
   $("contador").textContent = filas.length + (filas.length === 1 ? " cuenta" : " cuentas");
-  $("lista").innerHTML = filas.length ? filas.map((c) => {
-    const nombre = c.nombre || c.correo || "Sin nombre";
-    const pills = (c.esAdmin ? '<span class="pill adm">Admin</span> ' : "") +
-      (c.suspendido ? '<span class="pill mal">Suspendida</span>' : "") +
-      (!c.registrado ? '<span class="pill">Sin registro</span>' : "");
-    return '<li><button type="button" class="cuenta" data-uid="' + esc(c.uid) + '">' +
-      '<span class="avatar">' + esc(nombre.trim().charAt(0).toUpperCase()) + '</span>' +
-      '<span class="info"><b>' + esc(nombre) + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + ' · ' + num(c.victorias) + ' victorias</small></span>' +
-      '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + pills + '</span>' +
-      '</button></li>';
-  }).join("") : '<li class="vacio">No hay cuentas con ese filtro.</li>';
+  $("lista").innerHTML = filas.length ? filas.map(tarjeta).join("") : '<li class="vacio">No hay cuentas con ese filtro.</li>';
+  pintarSeleccion();
 }
 
 $("buscar").addEventListener("input", (e) => { busqueda = e.target.value; pintarLista(); });
@@ -343,35 +448,118 @@ $("filtros").addEventListener("click", (e) => {
   pintarLista();
 });
 $("lista").addEventListener("click", (e) => {
-  const b = e.target.closest(".cuenta"); if (!b) return;
-  abrir(cuentas.find((c) => c.uid === b.dataset.uid));
+  const b = e.target.closest("[data-acc]"); if (!b) return;
+  const c = cuentas.find((x) => x.uid === b.dataset.uid); if (!c) return;
+  if (b.dataset.acc === "creditos") irACreditos(c.uid);
+  else cambiarEstado(c, b);
 });
 
-// ---------- Pestañas y registro ----------
-document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x === t));
-  $("t-cuentas").classList.toggle("oculto", t.dataset.tab !== "cuentas");
-  $("t-compras").classList.toggle("oculto", t.dataset.tab !== "compras");
-  $("t-registro").classList.toggle("oculto", t.dataset.tab !== "registro");
-  if (t.dataset.tab === "compras") cargarCompras();
-  if (t.dataset.tab === "registro") cargarRegistro();
-}));
-
-function textoAccion(r) {
-  switch (r.accion) {
-    case "sumar": return "Sumó " + num(r.monto) + " créditos (" + num(r.antes) + " → " + num(r.despues) + ")";
-    case "restar": return "Restó " + num(r.monto) + " créditos (" + num(r.antes) + " → " + num(r.despues) + ")";
-    case "fijar": return "Fijó el saldo en " + num(r.monto) + " (antes " + num(r.antes) + ")";
-    case "suspender": return "Suspendió la cuenta";
-    case "reactivar": return "Reactivó la cuenta";
-    case "compra": return "Aprobó una compra de " + num(r.monto) + " créditos";
-    case "compra-rechazada": return "Rechazó una compra de " + num(r.monto) + " créditos";
-    default: return r.accion || "";
-  }
+async function cambiarEstado(c, boton) {
+  const suspender = !c.suspendido;
+  if (!confirm((suspender ? "¿Suspender" : "¿Reactivar") + " la cuenta de " + (c.nombre || c.correo) + "?")) return;
+  boton.disabled = true;
+  try {
+    const r = await llamar("adminEstado", { uid: c.uid, suspender });
+    c.suspendido = r.suspendido;
+    registroCargado = false;
+    pintarStats(); pintarLista();
+    aviso(r.suspendido ? "Cuenta suspendida. Se corta el acceso cuando expire su sesión actual (hasta 1 hora)." : "Cuenta reactivada.", true);
+  } catch (e) { boton.disabled = false; aviso(msgErr(e)); }
 }
+
+// ---------- Pestañas ----------
+function irATab(nombre) {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
+  ["perfiles", "creditos", "compras", "retiros", "mega", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  if (nombre === "mega") cargarMega();
+  if (nombre === "compras") cargarCompras();
+  if (nombre === "retiros") cargarRetiros();
+  if (nombre === "registro") cargarRegistro();
+  window.scrollTo({ top: 0 });
+}
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => irATab(t.dataset.tab)));
+
+// ---------- Créditos ----------
+let seleccionada = null;
+const RAPIDOS = [10000, 50000, 100000, 500000, 1000000];
+$("c-rapidos").innerHTML = RAPIDOS.map((m) => '<button type="button" class="chip" data-m="' + m + '">' + num(m) + "</button>").join("");
+$("c-rapidos").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  $("c-monto").value = b.dataset.m;
+});
+
+function pintarResultados() {
+  const q = $("c-buscar").value.trim().toLowerCase();
+  const ul = $("c-resultados");
+  if (!q) { ul.innerHTML = ""; return; }
+  const r = cuentas.filter((c) => coincide(c, q)).slice(0, 8);
+  ul.innerHTML = r.length ? r.map((c) =>
+    '<li><button type="button" class="cuenta" data-uid="' + esc(c.uid) + '">' +
+    '<span class="avatar">' + esc(inicial(c)) + '</span>' +
+    '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + '</small></span>' +
+    '<span class="der"><span class="cred">' + num(c.creditos) + '</span></span></button></li>').join("")
+    : '<li class="vacio">Sin resultados.</li>';
+}
+$("c-buscar").addEventListener("input", pintarResultados);
+$("c-resultados").addEventListener("click", (e) => {
+  const b = e.target.closest(".cuenta"); if (b) seleccionar(b.dataset.uid);
+});
+
+function seleccionar(uid) {
+  seleccionada = uid;
+  $("c-buscar").value = ""; pintarResultados();
+  $("c-monto").value = ""; $("c-motivo").value = ""; $("c-modo").value = "sumar";
+  $("c-msg").textContent = ""; $("c-msg").className = "msg";
+  actualizarBoton();
+  pintarSeleccion();
+}
+function irACreditos(uid) { irATab("creditos"); seleccionar(uid); }
+
+function pintarSeleccion() {
+  const c = cuentas.find((x) => x.uid === seleccionada);
+  if (!c) seleccionada = null;
+  $("c-busqueda").classList.toggle("oculto", !!c);
+  $("c-sel").classList.toggle("oculto", !c);
+  $("c-form").classList.toggle("oculto", !c);
+  if (!c) return;
+  $("c-sel").innerHTML = '<div class="sel-fila"><span class="avatar">' + esc(inicial(c)) + '</span>' +
+    '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + '</small></span></div>' +
+    '<div class="sel-pie"><div><small style="color:var(--suave)">Saldo actual</small><div class="saldo">' + num(c.creditos) + '</div>' + pills(c) + '</div>' +
+    '<button type="button" class="btn" id="c-cambiar">Cambiar cuenta</button></div>';
+  $("c-cambiar").onclick = () => { seleccionada = null; $("c-msg").textContent = ""; pintarSeleccion(); $("c-buscar").focus(); };
+}
+
+const ETIQUETA = { sumar: "Cargar créditos", restar: "Quitar créditos", fijar: "Fijar saldo" };
+function actualizarBoton() { $("c-aplicar").textContent = ETIQUETA[$("c-modo").value]; }
+$("c-modo").addEventListener("change", actualizarBoton);
+
+$("c-aplicar").onclick = async () => {
+  const c = cuentas.find((x) => x.uid === seleccionada); if (!c) return;
+  const modo = $("c-modo").value;
+  const monto = Number($("c-monto").value);
+  const msg = (t, ok) => { $("c-msg").textContent = t; $("c-msg").className = "msg" + (ok ? " ok" : ""); };
+  if (!Number.isInteger(monto) || monto < (modo === "fijar" ? 0 : 1)) { msg("Escribe un monto entero válido."); return; }
+  const verbo = { sumar: "cargar", restar: "quitar", fijar: "fijar el saldo en" }[modo];
+  if (!confirm("¿Seguro que quieres " + verbo + " " + num(monto) + " créditos " + (modo === "sumar" ? "a " : modo === "restar" ? "a " : "de ") + (c.nombre || c.correo) + "?")) return;
+  const b = $("c-aplicar"); b.disabled = true; msg("");
+  try {
+    const r = await llamar("adminCreditos", { uid: c.uid, modo, monto, motivo: $("c-motivo").value.trim() });
+    c.creditos = r.creditos;
+    $("c-monto").value = ""; $("c-motivo").value = "";
+    registroCargado = false;
+    pintarStats(); pintarLista();
+    msg("Listo. Nuevo saldo de " + (c.nombre || c.correo) + ": " + num(r.creditos), true);
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+
 // ---------- Compras de créditos ----------
 let comprasAdmin = [];
 const ESTADO_C = { pendiente: "Pendiente", procesando: "Acreditando…", aprobada: "Aprobada", rechazada: "Rechazada" };
+const cobro = (c) => (c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD");
+const clasePill = (e) => (e === "rechazada" || e === "rechazado" ? " mal" : e === "pendiente" ? " adm" : "");
+const contacto = (c) => [c.correo, c.telefono, c.tag, fecha(c.fecha)].filter(Boolean).map(esc).join(" · ");
+
 async function cargarCompras() {
   const ul = $("compras");
   try {
@@ -380,29 +568,147 @@ async function cargarCompras() {
     const pend = comprasAdmin.filter((c) => c.estado === "pendiente").length;
     $("n-compras").textContent = pend ? " (" + pend + ")" : "";
     ul.innerHTML = comprasAdmin.length ? comprasAdmin.map((c) =>
-      "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — " + num(c.creditos) + " créditos · " + esc(c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD") +
-      "<small>" + esc(c.correo) + (c.tag ? " · " + esc(c.tag) : "") + " · " + esc(fecha(c.fecha)) + "</small>" +
-      '<span class="pill' + (c.estado === "rechazada" ? " mal" : c.estado === "pendiente" ? " adm" : "") + '">' + esc(ESTADO_C[c.estado] || c.estado) + "</span>" +
+      "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — " + num(c.creditos) + " créditos · " + esc(cobro(c)) +
+      "<small>" + contacto(c) + "</small>" +
+      '<span class="pill' + clasePill(c.estado) + '">' + esc(ESTADO_C[c.estado] || c.estado) + "</span>" +
       (c.estado === "pendiente"
-        ? '<div class="acciones-c"><button type="button" class="btn primario" data-resolver="' + esc(c.id) + '" data-aprobar="1">Aprobar y acreditar</button>' +
-          '<button type="button" class="btn peligro" data-resolver="' + esc(c.id) + '">Rechazar</button></div>'
-        : "") +
-      "</li>").join("") : '<li class="vacio">Todavía no hay solicitudes de compra.</li>';
+        ? '<div class="acciones-c"><button type="button" class="btn primario" data-c="aprobar" data-id="' + esc(c.id) + '">Aprobar y acreditar</button>' +
+          '<button type="button" class="btn peligro" data-c="rechazar" data-id="' + esc(c.id) + '">Rechazar</button></div>'
+        : "") + "</li>").join("") : '<li class="vacio">Todavía no hay solicitudes de compra.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
 }
 $("compras").addEventListener("click", async (ev) => {
-  const b = ev.target.closest("[data-resolver]");
-  if (!b) return;
-  const c = comprasAdmin.find((x) => x.id === b.dataset.resolver);
-  if (!c) return;
-  const aprobar = !!b.dataset.aprobar;
+  const b = ev.target.closest("[data-c]"); if (!b) return;
+  const c = comprasAdmin.find((x) => x.id === b.dataset.id); if (!c) return;
+  const aprobar = b.dataset.c === "aprobar";
   const quien = c.nombre || c.correo;
-  if (!confirm(aprobar ? "¿Ya recibiste el pago de " + (c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD") + " de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
+  if (!confirm(aprobar ? "¿Ya recibiste el pago de " + cobro(c) + " de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
   b.disabled = true;
-  try { await llamar("adminResolverCompra", { id: c.id, aprobar }); await cargar(); }
-  catch (e) { alert(msgErr(e)); b.disabled = false; }
+  try {
+    await llamar("adminResolverCompra", { id: c.id, aprobar });
+    registroCargado = false;
+    aviso(aprobar ? "Compra aprobada y créditos acreditados." : "Solicitud rechazada.", true);
+    await cargar();
+  } catch (e) { aviso(msgErr(e)); b.disabled = false; }
 });
 
+// ---------- Retiros ----------
+let retirosAdmin = [];
+const ESTADO_R = { pendiente: "Pendiente de pago", devolviendo: "Devolviendo créditos…", pagado: "Pagado ✓", rechazado: "Rechazado · créditos devueltos" };
+const aPagar = (c) => (c.recibePesos != null ? "$" + num(c.recibePesos) + " COP" : "$" + c.recibeUsd + " USD");
+
+function tarjetaRetiro(c) {
+  const abierto = c.estado === "pendiente" || c.estado === "devolviendo";
+  const valor = c.pesos != null ? " = $" + num(c.pesos) + " COP" : "";
+  const comision = c.comisionPesos != null ? " · comisión " + c.comisionPct + "% ($" + num(c.comisionPesos) + ")" : "";
+  const id = esc(c.id);
+  return "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — pagar " + esc(aPagar(c)) +
+    "<small>" + num(c.creditos) + " créditos" + esc(valor + comision) + "</small>" +
+    "<small>Destino: <b>" + esc(c.destino) + "</b></small>" +
+    "<small>" + contacto(c) + "</small>" +
+    (c.nota ? "<small>Nota: " + esc(c.nota) + "</small>" : "") +
+    '<span class="pill' + clasePill(c.estado) + '">' + esc(ESTADO_R[c.estado] || c.estado) + "</span>" +
+    (c.estado === "pendiente"
+      ? '<div class="acciones-c"><button type="button" class="btn primario" data-r="pagar" data-id="' + id + '">Marcar como pagado</button>' +
+        '<button type="button" class="btn peligro" data-r="rechazar" data-id="' + id + '">Rechazar y devolver</button></div>'
+      : c.estado === "devolviendo"
+        ? '<div class="acciones-c"><button type="button" class="btn peligro" data-r="rechazar" data-id="' + id + '">Reintentar devolución</button></div>'
+        : "") + "</li>";
+}
+async function cargarRetiros() {
+  const ul = $("retiros");
+  try {
+    const r = await llamar("adminRetiros");
+    retirosAdmin = r.retiros || [];
+    const pend = retirosAdmin.filter((c) => c.estado === "pendiente" || c.estado === "devolviendo").length;
+    $("n-retiros").textContent = pend ? " (" + pend + ")" : "";
+    ul.innerHTML = retirosAdmin.length ? retirosAdmin.map(tarjetaRetiro).join("") : '<li class="vacio">Todavía no hay retiros.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+$("retiros").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-r]"); if (!b) return;
+  const c = retirosAdmin.find((x) => x.id === b.dataset.id); if (!c) return;
+  const pagar = b.dataset.r === "pagar";
+  const quien = c.nombre || c.correo;
+  if (!confirm(pagar
+    ? "¿Ya enviaste " + aPagar(c) + " a " + quien + "?\nDestino: " + c.destino + "\nSe marcará como pagado."
+    : "¿Rechazar el retiro de " + quien + "?\nSe le devolverán " + c.creditos + " créditos.")) return;
+  const nota = prompt(pagar ? "Referencia del pago (opcional)" : "Motivo del rechazo (opcional)", "");
+  if (nota === null) return;
+  b.disabled = true;
+  try {
+    await llamar("adminResolverRetiro", { id: c.id, pagar, nota: nota.trim() });
+    registroCargado = false;
+    aviso(pagar ? "Retiro marcado como pagado." : "Retiro rechazado y créditos devueltos.", true);
+    await cargar();
+  } catch (e) { aviso(msgErr(e)); b.disabled = false; }
+});
+
+// ---------- Mega Legión ----------
+const cop = (n) => "$" + num(n) + " COP";
+const TIPO_MEGA = { recarga: "Aportes de recargas", retiro: "Comisión de retiro", aporte: "Aporte", premio: "Premio pagado", ajuste: "Ajuste" };
+async function cargarMega() {
+  const ul = $("m-lista");
+  try {
+    const r = await llamar("adminMega");
+    $("m-saldo").textContent = cop(r.saldo);
+    $("m-resumen").textContent = "Entradas " + cop(r.entradas) + " · Premios pagados " + cop(r.premios);
+    $("m-pct").value = r.pct;
+    const lista = r.movimientos || [];
+    ul.innerHTML = lista.length ? lista.map((m) =>
+      "<li><b>" + esc(TIPO_MEGA[m.tipo] || m.tipo) + '</b> — <span class="' + (m.monto >= 0 ? "mas" : "menos") + '">' + (m.monto >= 0 ? "+" : "−") + esc(cop(Math.abs(m.monto))) + "</span>" +
+      (m.nota ? "<small>" + esc(m.nota) + "</small>" : "") +
+      "<small>" + esc(fecha(m.fecha)) + (m.admin ? " · " + esc(m.admin) : "") + "</small></li>").join("")
+      : '<li class="vacio">Todavía no hay movimientos.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+$("m-guardar").onclick = async () => {
+  const pct = Number($("m-pct").value);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) { aviso("El porcentaje debe estar entre 0 y 100."); return; }
+  const b = $("m-guardar"); b.disabled = true;
+  try { await llamar("adminMegaConfig", { pct }); registroCargado = false; aviso("Listo: " + pct + "% de cada recarga aprobada entrará a la alcancía.", true); }
+  catch (e) { aviso(msgErr(e)); }
+  b.disabled = false;
+};
+$("m-aplicar").onclick = async () => {
+  const tipo = $("m-tipo").value;
+  const monto = Number($("m-monto").value);
+  const nota = $("m-nota").value.trim();
+  const msg = (t, ok) => { $("m-msg").textContent = t; $("m-msg").className = "msg" + (ok ? " ok" : ""); };
+  if (!Number.isInteger(monto) || monto < 1) { msg("Escribe un monto entero válido."); return; }
+  if (tipo === "premio" && nota.length < 3) { msg("Escribe en la nota a quién se le paga el premio."); return; }
+  if (!confirm(tipo === "premio"
+    ? "¿Registrar el pago de un premio de " + cop(monto) + "?\nSe descuenta de la alcancía. Recuerda enviar el pago por fuera."
+    : "¿Aportar " + cop(monto) + " a la alcancía?")) return;
+  const b = $("m-aplicar"); b.disabled = true; msg("");
+  try {
+    await llamar("adminMegaMovimiento", { tipo, monto, nota });
+    $("m-monto").value = ""; $("m-nota").value = "";
+    registroCargado = false;
+    msg("Listo, movimiento registrado.", true);
+    await cargarMega();
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+
+// ---------- Registro ----------
+function textoAccion(r) {
+  switch (r.accion) {
+    case "sumar": return "Cargó " + num(r.monto) + " créditos (" + num(r.antes) + " → " + num(r.despues) + ")";
+    case "restar": return "Quitó " + num(r.monto) + " créditos (" + num(r.antes) + " → " + num(r.despues) + ")";
+    case "fijar": return "Fijó el saldo en " + num(r.monto) + " (antes " + num(r.antes) + ")";
+    case "suspender": return "Suspendió la cuenta";
+    case "reactivar": return "Reactivó la cuenta";
+    case "compra": return "Aprobó una compra de " + num(r.monto) + " créditos" + (r.motivo ? " (" + r.motivo + ")" : "");
+    case "compra-rechazada": return "Rechazó una compra de " + num(r.monto) + " créditos";
+    case "mega-aporte": return "Aportó " + cop(r.monto) + " a la alcancía Mega Legión";
+    case "mega-premio": return "Pagó un premio de " + cop(r.monto) + " del Mega Legión";
+    case "mega-config": return "Cambió al " + r.monto + "% la parte de cada recarga que entra al Mega Legión";
+    case "retiro": return "Pagó un retiro de " + num(r.monto) + " créditos";
+    case "retiro-rechazado": return "Rechazó un retiro de " + num(r.monto) + " créditos (devueltos)";
+    default: return r.accion || "";
+  }
+}
 async function cargarRegistro() {
   registroCargado = true;
   const ul = $("registro");
@@ -412,71 +718,11 @@ async function cargarRegistro() {
     const lista = r.registros || [];
     ul.innerHTML = lista.length ? lista.map((x) => {
       const c = cuentas.find((y) => y.uid === x.uid);
-      return "<li><b>" + esc(c ? (c.nombre || c.correo) : x.uid) + "</b> — " + esc(textoAccion(x)) +
+      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
         "<small>" + esc(fecha(x.fecha)) + " · " + esc(x.admin) + (x.motivo ? " · " + esc(x.motivo) : "") + "</small></li>";
     }).join("") : '<li class="vacio">Todavía no hay acciones.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
 }
-
-// ---------- Detalle de cuenta ----------
-function abrir(c) {
-  if (!c) return;
-  actual = c;
-  $("d-msg").textContent = ""; $("d-msg").className = "msg";
-  $("d-monto").value = ""; $("d-motivo").value = ""; $("d-modo").value = "sumar";
-  pintarDetalle();
-  $("dlg").showModal();
-}
-function pintarDetalle() {
-  const c = actual;
-  const nombre = c.nombre || c.correo || "Sin nombre";
-  $("d-avatar").textContent = nombre.trim().charAt(0).toUpperCase();
-  $("d-nombre").textContent = nombre;
-  $("d-pills").innerHTML = (c.esAdmin ? '<span class="pill adm">Admin</span> ' : "") +
-    (c.suspendido ? '<span class="pill mal">Suspendida</span> ' : "") + (!c.registrado ? '<span class="pill">Sin registro</span>' : "");
-  const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v || "—") + "</dd>";
-  $("d-datos").innerHTML = fila("Correo", c.correo) + fila("Teléfono", c.telefono) + fila("Tag", c.tag) +
-    "<dt>Enlace de amigo</dt><dd>" + (c.enlace ? '<a style="color:var(--cian)" href="' + esc(c.enlace) + '" target="_blank" rel="noopener noreferrer">Abrir</a>' : "—") + "</dd>" +
-    fila("Créditos", num(c.creditos)) + fila("Victorias", num(c.victorias)) +
-    fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid);
-  const b = $("d-estado");
-  b.textContent = c.suspendido ? "Reactivar cuenta" : "Suspender cuenta";
-  b.className = "btn ancho" + (c.suspendido ? "" : " peligro");
-  b.disabled = !!c.esAdmin;
-}
-function dlgMsg(t, ok) { $("d-msg").textContent = t; $("d-msg").className = "msg" + (ok ? " ok" : ""); }
-$("d-cerrar").onclick = () => $("dlg").close();
-
-$("d-aplicar").onclick = async () => {
-  const modo = $("d-modo").value;
-  const monto = Number($("d-monto").value);
-  if (!Number.isInteger(monto) || monto < (modo === "fijar" ? 0 : 1)) { dlgMsg("Escribe un monto entero válido."); return; }
-  const verbo = { sumar: "sumar", restar: "restar", fijar: "fijar el saldo en" }[modo];
-  if (!confirm("¿Seguro que quieres " + verbo + " " + num(monto) + " créditos a " + (actual.nombre || actual.correo) + "?")) return;
-  const b = $("d-aplicar"); b.disabled = true; dlgMsg("");
-  try {
-    const r = await llamar("adminCreditos", { uid: actual.uid, modo, monto, motivo: $("d-motivo").value.trim() });
-    actual.creditos = r.creditos;
-    $("d-monto").value = ""; $("d-motivo").value = "";
-    pintarDetalle(); pintarStats(); pintarLista();
-    dlgMsg("Listo. Saldo: " + num(r.creditos), true);
-    registroCargado = false;
-  } catch (e) { dlgMsg(msgErr(e)); }
-  b.disabled = false;
-};
-
-$("d-estado").onclick = async () => {
-  const suspender = !actual.suspendido;
-  if (!confirm((suspender ? "¿Suspender" : "¿Reactivar") + " la cuenta de " + (actual.nombre || actual.correo) + "?")) return;
-  const b = $("d-estado"); b.disabled = true; dlgMsg("");
-  try {
-    const r = await llamar("adminEstado", { uid: actual.uid, suspender });
-    actual.suspendido = r.suspendido;
-    pintarDetalle(); pintarStats(); pintarLista();
-    dlgMsg(r.suspendido ? "Cuenta suspendida. Se corta el acceso cuando expire su sesión actual (hasta 1 hora)." : "Cuenta reactivada.", true);
-    registroCargado = false;
-  } catch (e) { dlgMsg(msgErr(e)); pintarDetalle(); }
-};
 </script>
 </body>
 </html>
