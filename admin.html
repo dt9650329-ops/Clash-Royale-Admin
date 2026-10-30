@@ -246,8 +246,11 @@ label>*{margin-top:4px;font-weight:400}
       <div class="panel pad mega-saldo">
         <h2>Mega Legión</h2>
         <p class="suave">La alcancía del premio de la tabla de clasificación. Se llena con un porcentaje de cada recarga aprobada y pasa al saldo una vez al día. Al jugador no se le descuenta nada.</p>
-        <small>Saldo de la alcancía</small>
-        <div class="num-grande" id="m-saldo">$0 COP</div>
+        <small>En vivo (se suma con cada recarga aprobada)</small>
+        <div class="num-grande" id="m-saldo">0 monedas</div>
+        <small id="m-vivo"></small>
+        <div style="margin-top:12px"><small>Lo que ven los jugadores (se actualiza a las 12:00 a. m.)</small></div>
+        <div class="num-grande" id="m-jugadores" style="font-size:1.6rem">0 monedas</div>
         <small id="m-resumen"></small>
       </div>
 
@@ -651,7 +654,11 @@ async function cargarMega() {
   const ul = $("m-lista");
   try {
     const r = await llamar("adminMega");
-    $("m-saldo").textContent = cop(r.saldo);
+    const ppm = r.pesosPorMoneda || 500;
+    const mon = (p) => { const v = Math.round((Number(p || 0) / ppm) * 10) / 10; return v.toLocaleString("es-CO", { maximumFractionDigits: 1 }) + (v === 1 ? " moneda" : " monedas"); };
+    $("m-saldo").textContent = mon(r.enVivo);
+    $("m-vivo").textContent = cop(r.enVivo) + " · Por pasar a los jugadores esta noche: " + mon(r.pendiente) + " (" + cop(r.pendiente) + ")";
+    $("m-jugadores").textContent = mon(r.saldo);
     $("m-resumen").textContent = "Entradas " + cop(r.entradas) + " · Premios pagados " + cop(r.premios);
     $("m-pct").value = r.pct;
     const lista = r.movimientos || [];
