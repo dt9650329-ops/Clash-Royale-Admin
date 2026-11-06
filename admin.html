@@ -113,6 +113,14 @@ label>*{margin-top:4px;font-weight:400}
 .mega-saldo small{display:block;color:var(--suave)}
 .mas{color:var(--ok);font-weight:700}
 .menos{color:var(--error);font-weight:700}
+.pill.ok{border-color:var(--ok);color:var(--ok)}
+.torneo-desc{color:var(--suave);margin:8px 0 0;font-size:.95em;overflow-wrap:anywhere}
+details.inscritos{margin-top:12px;padding-top:10px;border-top:1px solid var(--linea)}
+details.inscritos summary{cursor:pointer;font-weight:700;color:var(--cian)}
+details.inscritos .reg{margin-top:6px}
+.ganador-fila{display:flex;gap:8px;margin-top:12px}
+.ganador-fila select{flex:1;min-width:0}
+.ganador-fila .btn{flex:none}
 </style>
 </head>
 <body>
@@ -166,6 +174,7 @@ label>*{margin-top:4px;font-weight:400}
       <button type="button" class="tab" data-tab="compras" role="tab">Compras<span id="n-compras"></span></button>
       <button type="button" class="tab" data-tab="retiros" role="tab">Retiros<span id="n-retiros"></span></button>
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
+      <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
     </div>
 
@@ -291,6 +300,34 @@ label>*{margin-top:4px;font-weight:400}
       </div>
     </section>
 
+    <section id="t-torneos" class="oculto">
+      <div class="panel pad">
+        <h2>Crear torneo</h2>
+        <p class="suave">Inscripción gratis, sin créditos. El ganador reclama el Pass Royale y tú lo pagas por fuera.</p>
+        <label>Nombre
+          <input id="t-nombre" maxlength="60" placeholder="Ej. Torneo Pass Royale · semana 1">
+        </label>
+        <label style="margin-top:10px">Inicio (opcional)
+          <input id="t-inicio" type="datetime-local">
+        </label>
+        <div class="dos" style="margin-top:10px">
+          <label>Cupos (opcional)
+            <input id="t-cupos" type="number" inputmode="numeric" min="2" step="1" placeholder="Sin límite">
+          </label>
+          <label>Premio
+            <input id="t-premio" maxlength="60" value="Pass Royale">
+          </label>
+        </div>
+        <label>Reglas o descripción (opcional)
+          <textarea id="t-desc" rows="3" maxlength="400" style="resize:vertical" placeholder="Ej. Eliminación directa, mejor de 3"></textarea>
+        </label>
+        <button type="button" class="btn primario ancho" id="t-crear" style="margin-top:12px">Crear torneo</button>
+        <p id="t-msg" class="msg" role="status"></p>
+      </div>
+      <h2 style="margin:16px 0 10px">Torneos</h2>
+      <ul class="lista" id="torneos"></ul>
+    </section>
+
     <section id="t-registro" class="oculto">
       <div class="panel pad">
         <h2>Últimas acciones</h2>
@@ -372,6 +409,7 @@ async function cargar() {
   pintarLista();
   cargarCompras();
   cargarRetiros();
+  cargarTorneos();
   if (registroCargado) cargarRegistro();
 }
 $("btn-refrescar").onclick = async () => {
@@ -473,8 +511,9 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "mega", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "mega", "torneos", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
+  if (nombre === "torneos") cargarTorneos();
   if (nombre === "compras") cargarCompras();
   if (nombre === "retiros") cargarRetiros();
   if (nombre === "registro") cargarRegistro();
@@ -698,6 +737,128 @@ $("m-aplicar").onclick = async () => {
   b.disabled = false;
 };
 
+// ---------- Torneos ----------
+let torneosAdmin = [];
+const abiertosT = new Set(); // torneos con la lista de inscritos desplegada
+const ESTADO_T = { abierto: "Inscripciones abiertas", "en-juego": "En juego", finalizado: "Finalizado", cancelado: "Cancelado" };
+const claseT = (e) => (e === "cancelado" ? " mal" : e === "abierto" ? " adm" : e === "finalizado" ? " ok" : "");
+const necesitaAtencion = (t) => t.estado === "en-juego" || (t.estado === "finalizado" && t.premioReclamado && !t.premioEntregado);
+
+function tarjetaTorneo(t) {
+  const ins = t.inscritos || [];
+  const gan = t.ganador || null;
+  const id = esc(t.id);
+  const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v) + "</dd>";
+  const nombreDe = (i) => i.nombre || i.correo || i.uid;
+  const filas = ins.length
+    ? ins.map((i) => "<li><b>" + esc(nombreDe(i)) + "</b>" +
+        (gan && gan.uid === i.uid ? ' <span class="pill ok">Ganador</span>' : "") +
+        "<small>" + ([i.tag, i.telefono, i.correo].filter(Boolean).map(esc).join(" · ") || "—") + "</small></li>").join("")
+    : '<li class="vacio">Todavía no hay inscritos.</li>';
+
+  let acc = "";
+  if (t.estado === "abierto") {
+    acc = '<div class="acciones-c"><button type="button" class="btn primario" data-t="iniciar" data-id="' + id + '">Iniciar torneo</button>' +
+      '<button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar</button></div>';
+  } else if (t.estado === "en-juego") {
+    acc = (ins.length
+      ? '<div class="ganador-fila"><select aria-label="Ganador">' +
+          ins.map((i) => '<option value="' + esc(i.uid) + '">' + esc(nombreDe(i)) + (i.tag ? " · " + esc(i.tag) : "") + "</option>").join("") +
+        '</select><button type="button" class="btn primario" data-t="ganador" data-id="' + id + '">Declarar ganador</button></div>'
+      : '<p class="suave" style="margin:12px 0 0">Nadie se inscribió, no hay a quién declarar ganador.</p>') +
+      '<div class="acciones-c"><button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar torneo</button></div>';
+  } else if (t.estado === "finalizado" && !t.premioEntregado) {
+    acc = '<div class="acciones-c"><button type="button" class="btn primario" data-t="premio" data-id="' + id + '">Marcar pase entregado</button></div>';
+  }
+
+  return '<li class="perfil">' +
+    '<div class="p-cab"><span class="info"><b>' + esc(t.nombre) + '</b></span>' +
+    '<span class="der"><span class="pill' + claseT(t.estado) + '">' + esc(ESTADO_T[t.estado] || t.estado) + '</span></span></div>' +
+    '<dl class="p-datos">' +
+      fila("Premio", t.premio || "Pass Royale") +
+      fila("Inicio", t.inicio ? fecha(t.inicio) : "Sin fecha") +
+      fila("Inscritos", t.cupos ? ins.length + " de " + t.cupos : String(ins.length)) +
+      (gan ? fila("Ganador", (gan.nombre || gan.uid) + (gan.tag ? " · " + gan.tag : "")) : "") +
+      (t.estado === "finalizado" ? fila("Pase", t.premioEntregado ? "Entregado ✓" : t.premioReclamado ? "Reclamado · por entregar" : "Aún sin reclamar") : "") +
+    '</dl>' +
+    (t.descripcion ? '<p class="torneo-desc">' + esc(t.descripcion) + '</p>' : "") +
+    '<details class="inscritos" data-id="' + id + '"' + (abiertosT.has(t.id) ? " open" : "") + '><summary>Ver inscritos (' + ins.length + ')</summary>' +
+      '<ul class="reg">' + filas + '</ul></details>' +
+    acc + '</li>';
+}
+
+async function cargarTorneos() {
+  const ul = $("torneos");
+  try {
+    const r = await llamar("adminTorneos");
+    torneosAdmin = (r.torneos || []).slice().sort((a, b) => (b.creadoEn || 0) - (a.creadoEn || 0));
+    const pend = torneosAdmin.filter(necesitaAtencion).length;
+    $("n-torneos").textContent = pend ? " (" + pend + ")" : "";
+    ul.innerHTML = torneosAdmin.length ? torneosAdmin.map(tarjetaTorneo).join("") : '<li class="vacio">Todavía no hay torneos. Crea el primero arriba.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+
+$("torneos").addEventListener("toggle", (e) => {
+  const d = e.target;
+  if (!d.dataset || !d.dataset.id) return;
+  if (d.open) abiertosT.add(d.dataset.id); else abiertosT.delete(d.dataset.id);
+}, true);
+
+$("t-crear").onclick = async () => {
+  const msg = (t, ok) => { $("t-msg").textContent = t; $("t-msg").className = "msg" + (ok ? " ok" : ""); };
+  const nombre = $("t-nombre").value.trim();
+  const premio = $("t-premio").value.trim() || "Pass Royale";
+  const descripcion = $("t-desc").value.trim();
+  const inicio = $("t-inicio").value ? new Date($("t-inicio").value).getTime() : null;
+  const cupos = $("t-cupos").value === "" ? null : Number($("t-cupos").value);
+  if (nombre.length < 3) { msg("Ponle un nombre al torneo (mínimo 3 letras)."); return; }
+  if (inicio !== null && !Number.isFinite(inicio)) { msg("La fecha de inicio no es válida."); return; }
+  if (cupos !== null && (!Number.isInteger(cupos) || cupos < 2)) { msg("Los cupos deben ser un número entero de 2 o más, o déjalo vacío."); return; }
+  const b = $("t-crear"); b.disabled = true; msg("");
+  try {
+    await llamar("adminTorneoCrear", { nombre, premio, descripcion, inicio, cupos });
+    $("t-nombre").value = ""; $("t-inicio").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; $("t-premio").value = "Pass Royale";
+    registroCargado = false;
+    msg("Torneo creado.", true);
+    await cargarTorneos();
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+
+$("torneos").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-t]"); if (!b) return;
+  const t = torneosAdmin.find((x) => x.id === b.dataset.id); if (!t) return;
+  const acc = b.dataset.t;
+  let fn, datos, pregunta, listo;
+  if (acc === "iniciar") {
+    fn = "adminTorneoEstado"; datos = { id: t.id, estado: "en-juego" };
+    pregunta = "¿Iniciar «" + t.nombre + "»?\nSe cierran las inscripciones.";
+    listo = "Torneo iniciado. Inscripciones cerradas.";
+  } else if (acc === "cancelar") {
+    fn = "adminTorneoEstado"; datos = { id: t.id, estado: "cancelado" };
+    pregunta = "¿Cancelar el torneo «" + t.nombre + "»?";
+    listo = "Torneo cancelado.";
+  } else if (acc === "ganador") {
+    const sel = b.closest(".perfil").querySelector("select");
+    const g = (t.inscritos || []).find((i) => i.uid === (sel && sel.value)); if (!g) return;
+    fn = "adminTorneoGanador"; datos = { id: t.id, uid: g.uid };
+    pregunta = "¿Declarar a " + (g.nombre || g.correo || g.uid) + " como ganador de «" + t.nombre + "»?\nEl torneo queda finalizado.";
+    listo = "Ganador declarado.";
+  } else if (acc === "premio") {
+    fn = "adminTorneoPremio"; datos = { id: t.id };
+    pregunta = "¿Ya entregaste el " + (t.premio || "Pass Royale") + " a " + ((t.ganador && (t.ganador.nombre || t.ganador.uid)) || "el ganador") + "?";
+    listo = "Pase marcado como entregado.";
+  } else return;
+  if (!confirm(pregunta)) return;
+  b.disabled = true;
+  try {
+    await llamar(fn, datos);
+    registroCargado = false;
+    aviso(listo, true);
+    await cargarTorneos();
+  } catch (e) { aviso(msgErr(e)); b.disabled = false; }
+});
+
 // ---------- Registro ----------
 function textoAccion(r) {
   switch (r.accion) {
@@ -713,6 +874,10 @@ function textoAccion(r) {
     case "mega-config": return "Cambió al " + r.monto + "% la parte de cada recarga que entra al Mega Legión";
     case "retiro": return "Pagó un retiro de " + num(r.monto) + " créditos";
     case "retiro-rechazado": return "Rechazó un retiro de " + num(r.monto) + " créditos (devueltos)";
+    case "torneo-crear": return "Creó un torneo";
+    case "torneo-estado": return "Cambió el estado de un torneo" + (r.despues ? " a " + r.despues : "");
+    case "torneo-ganador": return "Declaró al ganador de un torneo";
+    case "torneo-premio": return "Marcó el pase de un torneo como entregado";
     default: return r.accion || "";
   }
 }
@@ -725,7 +890,7 @@ async function cargarRegistro() {
     const lista = r.registros || [];
     ul.innerHTML = lista.length ? lista.map((x) => {
       const c = cuentas.find((y) => y.uid === x.uid);
-      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
+      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
         "<small>" + esc(fecha(x.fecha)) + " · " + esc(x.admin) + (x.motivo ? " · " + esc(x.motivo) : "") + "</small></li>";
     }).join("") : '<li class="vacio">Todavía no hay acciones.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
