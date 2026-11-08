@@ -318,13 +318,18 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <label>Nombre
           <input id="t-nombre" maxlength="60" placeholder="Ej. Torneo Pass Royale · semana 1">
         </label>
-        <p class="suave" style="margin:6px 0 0">Crea primero el torneo dentro de Clash Royale (máximo 50 jugadores). Luego pega aquí su código: la tabla de posiciones sale del juego.</p>
-        <label style="margin-top:10px">Inicio (opcional)
-          <input id="t-inicio" type="datetime-local">
-        </label>
+        <p class="suave" style="margin:6px 0 0">Crea primero el torneo dentro de Clash Royale y pega aquí su código. Es obligatorio: la tabla de posiciones sale del juego.</p>
         <div class="dos" style="margin-top:10px">
-          <label>Cupos (máx. 50)
-            <input id="t-cupos" type="number" inputmode="numeric" min="2" max="50" step="1" placeholder="50">
+          <label>Código del torneo
+            <input id="t-tag" maxlength="20" placeholder="#ABC123" autocapitalize="characters" autocomplete="off">
+          </label>
+          <label>Clave (si tiene)
+            <input id="t-clave" maxlength="30" autocomplete="off">
+          </label>
+        </div>
+        <div class="dos" style="margin-top:10px">
+          <label>Cupos (máx. 1000)
+            <input id="t-cupos" type="number" inputmode="numeric" min="2" max="1000" step="1" placeholder="1000">
           </label>
           <label>Premio
             <input id="t-premio" maxlength="60" value="Pass Royale">
@@ -783,7 +788,7 @@ function tarjetaTorneo(t) {
 
   let acc = "";
   if (t.estado === "abierto") {
-    acc = bloqueCodigo + '<div class="acciones-c"><button type="button" class="btn primario" data-t="iniciar" data-id="' + id + '">Iniciar torneo</button>' +
+    acc = bloqueCodigo + '<div class="acciones-c"><button type="button" class="btn primario" data-t="iniciar" data-id="' + id + '">Iniciar torneo (cierra inscripciones)</button>' +
       '<button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar</button></div>';
   } else if (t.estado === "en-juego") {
     acc = bloqueCodigo + botonTabla +
@@ -806,8 +811,7 @@ function tarjetaTorneo(t) {
     '<dl class="p-datos">' +
       fila("Premio", t.premio || "Pass Royale") +
       fila("Código del juego", t.tagJuego || "Sin publicar") +
-      fila("Inicio", t.inicio ? fecha(t.inicio) : "Sin fecha") +
-      fila("Inscritos", ins.length + " de " + Math.min(t.cupos || 50, 50)) +
+      fila("Inscritos", ins.length + " de " + Math.min(t.cupos || 1000, 1000)) +
       (gan ? fila("Ganador", (gan.nombre || gan.uid) + (gan.tag ? " · " + gan.tag : "")) : "") +
       (t.estado === "finalizado" ? fila("Pase", t.premioEntregado ? "Entregado ✓" : t.premioReclamado ? "Reclamado · por entregar" : "Aún sin reclamar") : "") +
     '</dl>' +
@@ -839,17 +843,18 @@ $("t-crear").onclick = async () => {
   const nombre = $("t-nombre").value.trim();
   const premio = $("t-premio").value.trim() || "Pass Royale";
   const descripcion = $("t-desc").value.trim();
-  const inicio = $("t-inicio").value ? new Date($("t-inicio").value).getTime() : null;
+  const tag = $("t-tag").value.trim();
+  const clave = $("t-clave").value.trim();
   const cupos = $("t-cupos").value === "" ? null : Number($("t-cupos").value);
   if (nombre.length < 3) { msg("Ponle un nombre al torneo (mínimo 3 letras)."); return; }
-  if (inicio !== null && !Number.isFinite(inicio)) { msg("La fecha de inicio no es válida."); return; }
-  if (cupos !== null && (!Number.isInteger(cupos) || cupos < 2 || cupos > 50)) { msg("Los cupos deben ser un número entero entre 2 y 50, o déjalo vacío (50)."); return; }
+  if (!tag) { msg("Pega el código del torneo de Clash Royale. Es obligatorio."); return; }
+  if (cupos !== null && (!Number.isInteger(cupos) || cupos < 2 || cupos > 1000)) { msg("Los cupos deben ser un número entero entre 2 y 1000, o déjalo vacío (1000)."); return; }
   const b = $("t-crear"); b.disabled = true; msg("");
   try {
-    await llamar("adminTorneoCrear", { nombre, premio, descripcion, inicio, cupos });
-    $("t-nombre").value = ""; $("t-inicio").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; $("t-premio").value = "Pass Royale";
+    const r = await llamar("adminTorneoCrear", { nombre, premio, descripcion, cupos, tag, clave });
+    $("t-nombre").value = ""; $("t-tag").value = ""; $("t-clave").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; $("t-premio").value = "Pass Royale";
     registroCargado = false;
-    msg("Torneo creado.", true);
+    msg("Torneo creado y verificado en Clash Royale" + (r && r.nombreJuego ? ": " + r.nombreJuego : "") + ".", true);
     await cargarTorneos();
   } catch (e) { msg(msgErr(e)); }
   b.disabled = false;
@@ -862,8 +867,8 @@ $("torneos").addEventListener("click", async (ev) => {
   let fn, datos, pregunta, listo;
   if (acc === "iniciar") {
     fn = "adminTorneoEstado"; datos = { id: t.id, estado: "en-juego" };
-    pregunta = "¿Iniciar «" + t.nombre + "»?\nSe cierran las inscripciones.";
-    listo = "Torneo iniciado. Inscripciones cerradas.";
+    pregunta = "¿Iniciar «" + t.nombre + "»?\nSe cierran las inscripciones: nadie más podrá entrar.";
+    listo = "Torneo iniciado. Nadie más puede inscribirse.";
   } else if (acc === "cancelar") {
     fn = "adminTorneoEstado"; datos = { id: t.id, estado: "cancelado" };
     pregunta = "¿Cancelar el torneo «" + t.nombre + "»?";
