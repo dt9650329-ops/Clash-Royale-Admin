@@ -184,6 +184,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="creditos" role="tab">Créditos</button>
       <button type="button" class="tab" data-tab="compras" role="tab">Compras<span id="n-compras"></span></button>
       <button type="button" class="tab" data-tab="retiros" role="tab">Retiros<span id="n-retiros"></span></button>
+      <button type="button" class="tab" data-tab="apuestas" role="tab">Apuestas</button>
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
@@ -259,6 +260,15 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <h2>Retiros</h2>
         <p class="suave">Envía el pago por fuera (Nequi, etc.) y luego márcalo como pagado. Si lo rechazas, se devuelven los créditos completos.</p>
         <ul class="reg" id="retiros"></ul>
+      </div>
+    </section>
+
+    <section id="t-apuestas" class="oculto">
+      <div class="panel pad">
+        <h2>Montos de apuesta</h2>
+        <p class="suave">Toca un monto para activarlo o bloquearlo y luego pulsa Guardar. Los activos (✅) los pueden apostar los jugadores; los bloqueados (🔒) les salen con candado. Debe quedar al menos uno activo.</p>
+        <div class="chips" id="ap-chips"></div>
+        <button type="button" class="btn primario" id="ap-guardar">Guardar</button>
       </div>
     </section>
 
@@ -398,8 +408,15 @@ function msgErr(e) {
 $("btn-google").onclick = async () => {
   $("msg-login").textContent = "";
   try { await auth.signInWithPopup(proveedor); }
-  catch (e) { if (e.code !== "auth/popup-closed-by-user") $("msg-login").textContent = "No se pudo iniciar sesión. Intenta de nuevo."; }
+  catch (e) {
+    if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") return;
+    // En el celular el popup suele fallar: se usa redirección como respaldo
+    const usarRedirect = ["auth/popup-blocked", "auth/web-storage-unsupported", "auth/operation-not-supported-in-this-environment"].includes(e.code) || /missing initial state|disallowed_useragent/i.test(e.message || "");
+    if (usarRedirect) { try { await auth.signInWithRedirect(proveedor); return; } catch (e2) { e = e2; } }
+    $("msg-login").textContent = "No se pudo iniciar sesión (" + (e.code || e.message) + "). Intenta de nuevo.";
+  }
 };
+auth.getRedirectResult().catch((e) => { $("msg-login").textContent = "No se pudo iniciar sesión (" + (e.code || e.message) + ")."; });
 $("btn-otra").onclick = async () => { await auth.signOut(); };
 $("btn-salir").onclick = async () => { await auth.signOut(); };
 
@@ -528,8 +545,9 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "mega", "torneos", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
+  if (nombre === "apuestas") cargarApuestas();
   if (nombre === "torneos") cargarTorneos();
   if (nombre === "compras") cargarCompras();
   if (nombre === "retiros") cargarRetiros();
@@ -706,6 +724,36 @@ $("retiros").addEventListener("click", async (ev) => {
 // ---------- Mega Legión ----------
 const cop = (n) => "$" + num(n) + " COP";
 const TIPO_MEGA = { recarga: "Aportes de recargas", retiro: "Comisión de retiro", aporte: "Aporte", premio: "Premio pagado", ajuste: "Ajuste" };
+// ---------- Apuestas: montos activos / bloqueados ----------
+let apOpciones = [], apActivos = new Set();
+function pintarApuestas() {
+  const caja = $("ap-chips"); caja.innerHTML = "";
+  apOpciones.forEach((m) => {
+    const b = document.createElement("button");
+    const on = apActivos.has(m);
+    b.type = "button"; b.className = "chip" + (on ? " activa" : ""); b.textContent = (on ? "✅ " : "🔒 ") + m;
+    b.onclick = () => { if (apActivos.has(m)) apActivos.delete(m); else apActivos.add(m); pintarApuestas(); };
+    caja.appendChild(b);
+  });
+}
+async function cargarApuestas() {
+  try {
+    const r = await llamar("montosApuesta");
+    apOpciones = r.opciones; apActivos = new Set(r.activos);
+    pintarApuestas();
+  } catch (e) { aviso(msgErr(e)); }
+}
+$("ap-guardar").onclick = async () => {
+  if (!apActivos.size) { aviso("Deja al menos un monto activo."); return; }
+  const b = $("ap-guardar"); b.disabled = true;
+  try {
+    const r = await llamar("adminMontosGuardar", { activos: Array.from(apActivos) });
+    apActivos = new Set(r.activos); pintarApuestas(); registroCargado = false;
+    aviso("Listo: los jugadores pueden apostar " + r.activos.join(", ") + (r.activos.length === 1 && r.activos[0] === 1 ? " moneda." : " monedas."), true);
+  } catch (e) { aviso(msgErr(e)); }
+  b.disabled = false;
+};
+
 async function cargarMega() {
   const ul = $("m-lista");
   try {
