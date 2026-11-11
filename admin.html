@@ -56,6 +56,11 @@ input:focus,select:focus{border-color:var(--cian)}
 .filtros{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .chip{padding:7px 13px;border-radius:999px;border:2px solid var(--linea);background:none;font-weight:700;cursor:pointer}
 .chip.activa{background:var(--oro);color:#2A1D00;border-color:var(--oro)}
+.nv-fila{display:grid;grid-template-columns:1fr 110px;gap:10px;align-items:center;margin:0 0 10px}
+.nv-fila input{padding:9px 10px}
+.sg-res{margin:14px 0 0;padding:12px;border:2px solid var(--linea);border-radius:10px;background:rgba(5,11,32,.6);line-height:1.6}
+.sg-res b{color:var(--oro)}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
 .fila-orden{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;color:var(--suave)}
 .fila-orden select{width:auto;padding:8px 10px}
 .lista{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -188,6 +193,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
+      <button type="button" class="tab" data-tab="seguridad" role="tab">Seguridad</button>
     </div>
 
     <section id="t-perfiles">
@@ -278,6 +284,25 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <p class="suave">Toca un monto para activarlo o bloquearlo y luego pulsa Guardar. Los activos (✅) los pueden apostar los jugadores; los bloqueados (🔒) les salen con candado. Debe quedar al menos uno activo.</p>
         <div class="chips" id="ap-chips"></div>
         <button type="button" class="btn primario" id="ap-guardar">Guardar</button>
+      </div>
+      <div class="panel pad" style="margin-top:16px">
+        <h2>Niveles y XP</h2>
+        <p class="suave">El jugador gana <b>1 XP por cada moneda que recarga</b> (los regalos no dan XP). Cada nivel desbloquea el siguiente monto de apuesta. Aquí decides cuánto XP pide cada nivel; el nivel 1 siempre empieza en 0 y cada nivel debe pedir más que el anterior. Un monto solo se puede apostar si está ✅ arriba <b>y</b> el nivel del jugador lo permite.</p>
+        <div id="nv-filas"></div>
+        <button type="button" class="btn primario" id="nv-guardar">Guardar niveles</button>
+      </div>
+    </section>
+
+    <section id="t-seguridad" class="oculto">
+      <div class="panel pad">
+        <h2>Seguridad de las monedas</h2>
+        <p class="suave">Cada saldo lleva una firma que solo el servidor puede crear. <b>Auditar</b> revisa todas las cuentas. <b>Firmar saldos</b> sella los saldos viejos que aún no tienen firma (hazlo una vez, antes de activar el modo estricto). <b>Recalcular XP</b> reconstruye el XP de todos desde las recargas aprobadas.</p>
+        <div class="btns">
+          <button type="button" class="btn primario" id="sg-auditar">Auditar saldos</button>
+          <button type="button" class="btn" id="sg-firmar">Firmar saldos</button>
+          <button type="button" class="btn" id="sg-xp">Recalcular XP</button>
+        </div>
+        <div class="sg-res" id="sg-res" hidden></div>
       </div>
     </section>
 
@@ -554,7 +579,7 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "registro"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
   if (nombre === "apuestas") cargarApuestas();
   if (nombre === "torneos") cargarTorneos();
@@ -782,8 +807,66 @@ async function cargarApuestas() {
     const r = await llamar("montosApuesta");
     apOpciones = r.opciones; apActivos = new Set(r.activos);
     pintarApuestas();
+    nvNiveles = r.niveles || []; pintarNiveles();
   } catch (e) { aviso(msgErr(e)); }
 }
+// ---------- Niveles y XP ----------
+let nvNiveles = [];
+function pintarNiveles() {
+  const caja = $("nv-filas"); caja.innerHTML = "";
+  apOpciones.forEach((m, i) => {
+    const f = document.createElement("div"); f.className = "nv-fila";
+    const t = document.createElement("span"); t.innerHTML = "<b>Nivel " + (i + 1) + "</b> · apuesta hasta " + m + (m === 1 ? " moneda" : " monedas");
+    const inp = document.createElement("input"); inp.type = "number"; inp.min = "0"; inp.step = "1"; inp.inputMode = "numeric";
+    inp.id = "nv-xp-" + i; inp.value = nvNiveles[i] != null ? nvNiveles[i] : 0; inp.setAttribute("aria-label", "XP para el nivel " + (i + 1));
+    if (i === 0) { inp.value = 0; inp.disabled = true; }
+    f.appendChild(t); f.appendChild(inp); caja.appendChild(f);
+  });
+}
+$("nv-guardar").onclick = async () => {
+  const xp = apOpciones.map((m, i) => (i === 0 ? 0 : Number($("nv-xp-" + i).value)));
+  const b = $("nv-guardar"); b.disabled = true;
+  try {
+    const r = await llamar("adminNivelesGuardar", { xp });
+    nvNiveles = r.niveles; pintarNiveles(); registroCargado = false;
+    aviso("Niveles guardados.", true);
+  } catch (e) { aviso(msgErr(e)); }
+  b.disabled = false;
+};
+
+// ---------- Seguridad: auditar, firmar y recalcular XP ----------
+function sgMostrar(html) { const c = $("sg-res"); c.hidden = false; c.innerHTML = html; }
+$("sg-auditar").onclick = async () => {
+  const b = $("sg-auditar"); b.disabled = true; sgMostrar("Revisando todas las cuentas…");
+  try {
+    const r = await llamar("adminAuditarSaldos");
+    const sn = (v) => (v ? "Sí" : "No");
+    let h = "Clave de firma: <b>" + sn(r.conClave) + "</b> · Modo estricto: <b>" + sn(r.estricto) + "</b> · Modo pruebas: <b>" + sn(r.modoPruebas) + "</b><br>" +
+      "Saldos con firma correcta: <b>" + num(r.ok) + "</b> · Sin firma: <b>" + num(r.sinFirma) + "</b> · Alterados: <b>" + num(r.falsas.length) + "</b>";
+    if (r.modoPruebas) h += "<br>⚠️ El modo pruebas sigue encendido: cada cuenta recibe créditos de regalo al entrar.";
+    if (!r.conClave) h += "<br>⚠️ Falta la clave de firma (WALLET_KEY) en el servidor.";
+    if (r.falsas.length) h += "<br><br><b>Cuentas con saldo alterado</b> (revísalas y corrígelas con «fijar» en Créditos):<br>" + r.falsas.map((f) => esc(f.nombre || f.correo || f.uid) + " — saldo guardado: " + num(f.creditos)).join("<br>");
+    else if (r.conClave && !r.sinFirma) h += "<br>✅ Todo en orden: ningún saldo alterado.";
+    if (r.sinFirma) h += "<br>Hay saldos sin firma: pulsa «Firmar saldos» y vuelve a auditar.";
+    sgMostrar(h);
+  } catch (e) { sgMostrar("No se pudo auditar: " + esc(msgErr(e))); }
+  b.disabled = false;
+};
+$("sg-firmar").onclick = async () => {
+  if (!confirm("Esto firma los saldos que todavía no tienen firma. ¿Continuar?")) return;
+  const b = $("sg-firmar"); b.disabled = true; sgMostrar("Firmando…");
+  try { const r = await llamar("adminFirmarSaldos"); registroCargado = false; sgMostrar("Listo: se firmaron <b>" + num(r.firmados) + "</b> saldos. Vuelve a pulsar «Auditar saldos» para comprobar."); }
+  catch (e) { sgMostrar("No se pudo firmar: " + esc(msgErr(e))); }
+  b.disabled = false;
+};
+$("sg-xp").onclick = async () => {
+  if (!confirm("Esto reconstruye el XP de todos los jugadores desde sus recargas aprobadas. Se puede repetir sin riesgo. ¿Continuar?")) return;
+  const b = $("sg-xp"); b.disabled = true; sgMostrar("Recalculando…");
+  try { const r = await llamar("adminRecalcularXp"); registroCargado = false; sgMostrar("Listo: se recalculó el XP de <b>" + num(r.jugadores) + "</b> jugadores."); }
+  catch (e) { sgMostrar("No se pudo recalcular: " + esc(msgErr(e))); }
+  b.disabled = false;
+};
+
 $("ap-guardar").onclick = async () => {
   if (!apActivos.size) { aviso("Deja al menos un monto activo."); return; }
   const b = $("ap-guardar"); b.disabled = true;
