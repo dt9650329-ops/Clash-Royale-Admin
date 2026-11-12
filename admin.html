@@ -264,7 +264,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
     <section id="t-retiros" class="oculto">
       <div class="panel pad">
         <h2>Botones de retiro</h2>
-        <p class="suave">Toca un botón para activarlo (✅) o bloquearlo (🔒); los jugadores lo ven al instante. La tarjeta de Google Play vale lo que pongas en dólares: se entrega en la moneda del país del jugador (México, Perú, Chile o Colombia), convirtiendo esos dólares a su moneda. Cuesta 20 créditos.</p>
+        <p class="suave">Toca un botón para activarlo (✅) o bloquearlo (🔒); los jugadores lo ven al instante. Hay botones por cantidad de créditos (10, 25, 50) y por medio de pago (Nequi, PayPal, Binance): para que un retiro se pueda hacer deben estar activos los dos. La tarjeta de Google Play vale lo que pongas en dólares: se entrega en la moneda del país del jugador (México, Perú, Chile o Colombia), convirtiendo esos dólares a su moneda. Cuesta 20 créditos.</p>
         <div class="chips" id="rc-chips"></div>
         <label>Valor de la tarjeta Google Play (USD)
           <input id="rc-usd" type="number" inputmode="decimal" min="0.5" step="0.5" placeholder="2">
@@ -707,7 +707,7 @@ $("compras").addEventListener("click", async (ev) => {
 let retirosAdmin = [];
 const ESTADO_R = { pendiente: "Pendiente de pago", devolviendo: "Devolviendo créditos…", pagado: "Pagado ✓", rechazado: "Rechazado · créditos devueltos" };
 // ---------- Botones de retiro: activar/bloquear y valor de la tarjeta Google Play ----------
-const BOTONES_R = { p10: "10 créditos", p25: "25 créditos", p50: "50 créditos", googleplay: "Google Play (20 cr)" };
+const BOTONES_R = { p10: "10 créditos", p25: "25 créditos", p50: "50 créditos", nequi: "Nequi", paypal: "PayPal", binance: "Binance", googleplay: "Google Play (20 cr)" };
 let rcHab = {};
 function pintarRetirosConfig() {
   const caja = $("rc-chips"); caja.innerHTML = "";
@@ -747,6 +747,7 @@ function tarjetaRetiro(c) {
   return "<li><b>" + esc(c.nombre || c.correo || c.uid) + "</b> — pagar " + esc(aPagar(c)) +
     "<small>" + num(c.creditos) + " créditos" + esc(valor + comision) + "</small>" +
     (c.metodo === "googleplay" ? "<small>Tarjeta Google Play · valor en USD, conviértelo a la moneda del país del jugador</small>" : "") +
+    (c.metodo && c.metodo !== "googleplay" ? "<small>Método: <b>" + esc({ nequi: "Nequi", paypal: "PayPal", binance: "Binance" }[c.metodo] || c.metodo) + "</b></small>" : "") +
     "<small>Destino: <b>" + esc(c.destino) + "</b></small>" +
     "<small>" + contacto(c) + "</small>" +
     (c.nota ? "<small>Nota: " + esc(c.nota) + "</small>" : "") +
