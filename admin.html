@@ -193,6 +193,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="dinamicas" role="tab">Dinámicas</button>
+      <button type="button" class="tab" data-tab="desafios" role="tab">Desafíos</button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
       <button type="button" class="tab" data-tab="seguridad" role="tab">Seguridad</button>
     </div>
@@ -388,6 +389,28 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       </div>
       <h2 style="margin:16px 0 10px">Torneos</h2>
       <ul class="lista" id="torneos"></ul>
+    </section>
+
+    <section id="t-desafios" class="oculto">
+      <div class="panel pad">
+        <h2 id="ds-titulo-form">Crear desafío de racha</h2>
+        <p class="suave">Ej.: «5 victorias seguidas en subida de copas = 20 créditos». Se guarda como <b>borrador</b>: puedes editarlo (incluida la inscripción) y cuando estés listo lo lanzas. El jugador paga la inscripción al entrar; el premio se acredita solo al cumplir la meta, hasta completar el tope de ganadores.</p>
+        <label>Título<input id="ds-titulo" maxlength="60" placeholder="Ej. Racha de 5 victorias"></label>
+        <label>Descripción (opcional)<textarea id="ds-desc" rows="2" maxlength="250" style="resize:vertical"></textarea></label>
+        <label>Victorias seguidas para ganar<input id="ds-victorias" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="5"></label>
+        <label>Premio (créditos para cada ganador)<input id="ds-premio" type="number" inputmode="numeric" min="1" step="1" placeholder="20"></label>
+        <label>Tope de ganadores<input id="ds-tope" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="10"></label>
+        <label>Cobro de inscripción (créditos, 0 = gratis)<input id="ds-inscripcion" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></label>
+        <label>Duración una vez lanzado (horas)<input id="ds-horas" type="number" inputmode="numeric" min="1" max="720" step="1" placeholder="168"></label>
+        <p id="ds-riesgo" class="suave"></p>
+        <p id="ds-msg" class="msg" role="status"></p>
+        <button type="button" class="btn primario" id="ds-guardar">Guardar borrador</button>
+        <button type="button" class="btn" id="ds-cancelar-edicion" hidden>Cancelar edición</button>
+      </div>
+      <div class="panel pad">
+        <h2>Desafíos</h2>
+        <ul class="reg" id="ds-lista"></ul>
+      </div>
     </section>
 
     <section id="t-dinamicas" class="oculto">
@@ -614,11 +637,12 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "dinamicas", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "dinamicas", "desafios", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
   if (nombre === "apuestas") cargarApuestas();
   if (nombre === "torneos") cargarTorneos();
   if (nombre === "dinamicas") cargarDinamicas();
+  if (nombre === "desafios") cargarDesafiosAdmin();
   if (nombre === "compras") cargarCompras();
   if (nombre === "retiros") { cargarRetiros(); cargarRetirosConfig(); }
   if (nombre === "registro") cargarRegistro();
@@ -1149,6 +1173,81 @@ function tarjetaDinamica(d) {
     '<ul class="lista" style="margin-top:10px">' + filas + "</ul>" +
     '<div class="acciones-c">' + btn + "</div></li>";
 }
+// ---------- Desafíos de racha ----------
+let dsEditando = null, dsDatos = {};
+const ESTADO_DS = { borrador: "Borrador", abierto: "Abierto", cerrado: "Cerrado", cancelando: "Cancelando…", cancelado: "Cancelado" };
+function dsRiesgo() {
+  const premio = Number($("ds-premio").value) || 0, tope = Number($("ds-tope").value) || 0, insc = Number($("ds-inscripcion").value) || 0;
+  $("ds-riesgo").textContent = premio && tope ? "Lo máximo que puedes pagar en premios: " + num(premio * tope) + " créditos (" + num(premio) + " × " + num(tope) + "). Una inscripción de " + num(insc) + " créditos por jugador te devuelve parte." : "";
+}
+["ds-premio", "ds-tope", "ds-inscripcion"].forEach((i) => $(i).addEventListener("input", dsRiesgo));
+function dsLimpiarForm() {
+  dsEditando = null;
+  ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-inscripcion", "ds-horas"].forEach((i) => { $(i).value = ""; });
+  $("ds-titulo-form").textContent = "Crear desafío de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
+}
+$("ds-cancelar-edicion").onclick = dsLimpiarForm;
+async function cargarDesafiosAdmin() {
+  try {
+    const lista = await llamar("adminDesafiosListar");
+    dsDatos = {}; lista.forEach((d) => { dsDatos[d.id] = d; });
+    $("ds-lista").innerHTML = lista.map((d) => {
+      const id = esc(d.id);
+      const btn = (acc, txt, cls) => '<button type="button" class="btn ' + cls + '" data-ds="' + acc + '" data-id="' + id + '">' + txt + "</button>";
+      return "<li><b>" + esc(d.titulo) + "</b> — " + d.victorias + " victoria(s) seguidas = " + num(d.premio) + " créditos" +
+        "<small>Inscripción: " + (d.inscripcion ? num(d.inscripcion) + " créditos" : "gratis") + " · Tope: " + num(d.tope) + " ganadores · Duración: " + num(d.duracionHoras) + " h</small>" +
+        (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
+        (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
+        (d.ganadores.length ? "<small>Ganaron: <b>" + esc(d.ganadores.join(", ")) + "</b></small>" : "") +
+        (d.estado === "abierto" && d.jugando.length ? "<small>En juego: " + esc(d.jugando.map((j) => j.nombre + " (" + j.racha + ")").join(", ")) + "</small>" : "") +
+        '<span class="pill' + (d.estado === "abierto" ? " adm" : "") + '">' + esc(ESTADO_DS[d.estado] || d.estado) + "</span>" +
+        (d.estado === "borrador" ? '<div class="acciones-c">' + btn("lanzar", "Lanzar", "primario") + btn("editar", "Editar", "") + btn("eliminar", "Eliminar", "peligro") + "</div>"
+          : d.estado === "abierto" ? '<div class="acciones-c">' + btn("cerrar", "Cerrar ahora", "") + (d.ganadoresN === 0 ? btn("cancelar", "Cancelar y reembolsar", "peligro") : "") + "</div>"
+          : d.estado === "cancelando" ? '<div class="acciones-c">' + btn("cancelar", "Reintentar reembolso", "peligro") + "</div>" : "") + "</li>";
+    }).join("") || "<li>Todavía no hay desafíos.</li>";
+  } catch (e) { aviso(msgErr(e)); }
+}
+$("ds-lista").onclick = async (ev) => {
+  const b = ev.target.closest("[data-ds]"); if (!b) return;
+  const acc = b.dataset.ds, id = b.dataset.id, d = dsDatos[id];
+  if (acc === "editar") {
+    dsEditando = id;
+    $("ds-titulo").value = d.titulo; $("ds-desc").value = d.descripcion; $("ds-victorias").value = d.victorias; $("ds-premio").value = d.premio;
+    $("ds-tope").value = d.tope; $("ds-inscripcion").value = d.inscripcion; $("ds-horas").value = d.duracionHoras;
+    $("ds-titulo-form").textContent = "Editar borrador"; $("ds-guardar").textContent = "Guardar cambios"; $("ds-cancelar-edicion").hidden = false; dsRiesgo();
+    window.scrollTo(0, 0); return;
+  }
+  const textos = {
+    lanzar: "¿Lanzar este desafío? Ya no podrás editarlo y los jugadores podrán inscribirse.",
+    eliminar: "¿Eliminar este borrador?",
+    cerrar: "¿Cerrar ahora? Nadie más podrá ganar. Las inscripciones cobradas no se devuelven.",
+    cancelar: "¿Cancelar y devolver la inscripción a todos los inscritos?",
+  };
+  if (!confirm(textos[acc])) return;
+  b.disabled = true;
+  try {
+    await llamar("adminDesafioAccion", { id, accion: acc });
+    aviso({ lanzar: "Desafío lanzado.", eliminar: "Borrador eliminado.", cerrar: "Desafío cerrado.", cancelar: "Desafío cancelado y reembolsado." }[acc], true);
+    registroCargado = false;
+  } catch (e) { aviso(msgErr(e)); }
+  cargarDesafiosAdmin();
+};
+$("ds-guardar").onclick = async () => {
+  const msg = $("ds-msg"); msg.textContent = ""; msg.className = "msg";
+  const b = $("ds-guardar"); b.disabled = true;
+  try {
+    await llamar("adminDesafioGuardar", {
+      id: dsEditando, titulo: $("ds-titulo").value, descripcion: $("ds-desc").value, victorias: Number($("ds-victorias").value),
+      premio: Number($("ds-premio").value), tope: Number($("ds-tope").value), inscripcion: Number($("ds-inscripcion").value || 0), duracionHoras: Number($("ds-horas").value),
+    });
+    aviso(dsEditando ? "Cambios guardados." : "Borrador guardado. Pulsa «Lanzar» cuando esté listo.", true);
+    registroCargado = false;
+    dsLimpiarForm();
+    cargarDesafiosAdmin();
+  } catch (e) { msg.textContent = msgErr(e); msg.className = "msg error"; }
+  b.disabled = false;
+};
+
 async function cargarDinamicas() {
   const ul = $("dinamicas");
   try {
