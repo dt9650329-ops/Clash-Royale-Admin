@@ -193,7 +193,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="dinamicas" role="tab">Dinámicas</button>
-      <button type="button" class="tab" data-tab="desafios" role="tab">Desafíos</button>
+      <button type="button" class="tab" data-tab="desafios" role="tab">Eventos</button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
       <button type="button" class="tab" data-tab="seguridad" role="tab">Seguridad</button>
     </div>
@@ -393,7 +393,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
 
     <section id="t-desafios" class="oculto">
       <div class="panel pad">
-        <h2 id="ds-titulo-form">Crear desafío de racha</h2>
+        <h2 id="ds-titulo-form">Crear evento de racha</h2>
         <p class="suave">Ej.: «5 victorias seguidas en subida de copas = 20 créditos». Se guarda como <b>borrador</b>: puedes editarlo (incluida la inscripción) y cuando estés listo lo lanzas. El jugador paga la inscripción al entrar; el premio se acredita solo al cumplir la meta, hasta completar el tope de ganadores.</p>
         <label>Título<input id="ds-titulo" maxlength="60" placeholder="Ej. Racha de 5 victorias"></label>
         <label>Descripción (opcional)<textarea id="ds-desc" rows="2" maxlength="250" style="resize:vertical"></textarea></label>
@@ -408,7 +408,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <button type="button" class="btn" id="ds-cancelar-edicion" hidden>Cancelar edición</button>
       </div>
       <div class="panel pad">
-        <h2>Desafíos</h2>
+        <h2>Eventos</h2>
         <ul class="reg" id="ds-lista"></ul>
       </div>
     </section>
@@ -1173,7 +1173,7 @@ function tarjetaDinamica(d) {
     '<ul class="lista" style="margin-top:10px">' + filas + "</ul>" +
     '<div class="acciones-c">' + btn + "</div></li>";
 }
-// ---------- Desafíos de racha ----------
+// ---------- Eventos de racha ----------
 let dsEditando = null, dsDatos = {};
 const ESTADO_DS = { borrador: "Borrador", abierto: "Abierto", cerrado: "Cerrado", cancelando: "Cancelando…", cancelado: "Cancelado" };
 function dsRiesgo() {
@@ -1184,7 +1184,7 @@ function dsRiesgo() {
 function dsLimpiarForm() {
   dsEditando = null;
   ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-inscripcion", "ds-horas"].forEach((i) => { $(i).value = ""; });
-  $("ds-titulo-form").textContent = "Crear desafío de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
+  $("ds-titulo-form").textContent = "Crear evento de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
 }
 $("ds-cancelar-edicion").onclick = dsLimpiarForm;
 async function cargarDesafiosAdmin() {
@@ -1199,12 +1199,15 @@ async function cargarDesafiosAdmin() {
         (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
         (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
         (d.ganadores.length ? "<small>Ganaron: <b>" + esc(d.ganadores.join(", ")) + "</b></small>" : "") +
-        (d.estado === "abierto" && d.jugando.length ? "<small>En juego: " + esc(d.jugando.map((j) => j.nombre + " (" + j.racha + ")").join(", ")) + "</small>" : "") +
+        (d.inscritosLista.length ? "<details><summary>Ver inscritos (" + d.inscritosLista.length + ")</summary><ul class=\"reg\">" + d.inscritosLista.map((x) => {
+          const est = x.estado === "gano" ? "🏆 Ganó" : x.estado === "sin_cupo" ? "Llegó tarde (tope lleno)" : (d.estado === "abierto" ? "En juego" : "No cumplió");
+          return "<li><b>" + esc(x.nombre) + "</b> · #" + esc(x.tag) + "<small>" + est + " · racha " + x.racha + " (mejor " + x.mejor + ") · se inscribió " + esc(new Date(x.desde).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small></li>";
+        }).join("") + "</ul></details>" : "") +
         '<span class="pill' + (d.estado === "abierto" ? " adm" : "") + '">' + esc(ESTADO_DS[d.estado] || d.estado) + "</span>" +
         (d.estado === "borrador" ? '<div class="acciones-c">' + btn("lanzar", "Lanzar", "primario") + btn("editar", "Editar", "") + btn("eliminar", "Eliminar", "peligro") + "</div>"
           : d.estado === "abierto" ? '<div class="acciones-c">' + btn("cerrar", "Cerrar ahora", "") + (d.ganadoresN === 0 ? btn("cancelar", "Cancelar y reembolsar", "peligro") : "") + "</div>"
           : d.estado === "cancelando" ? '<div class="acciones-c">' + btn("cancelar", "Reintentar reembolso", "peligro") + "</div>" : "") + "</li>";
-    }).join("") || "<li>Todavía no hay desafíos.</li>";
+    }).join("") || "<li>Todavía no hay eventos.</li>";
   } catch (e) { aviso(msgErr(e)); }
 }
 $("ds-lista").onclick = async (ev) => {
@@ -1218,7 +1221,7 @@ $("ds-lista").onclick = async (ev) => {
     window.scrollTo(0, 0); return;
   }
   const textos = {
-    lanzar: "¿Lanzar este desafío? Ya no podrás editarlo y los jugadores podrán inscribirse.",
+    lanzar: "¿Lanzar este evento? Ya no podrás editarlo y los jugadores podrán inscribirse.",
     eliminar: "¿Eliminar este borrador?",
     cerrar: "¿Cerrar ahora? Nadie más podrá ganar. Las inscripciones cobradas no se devuelven.",
     cancelar: "¿Cancelar y devolver la inscripción a todos los inscritos?",
@@ -1227,7 +1230,7 @@ $("ds-lista").onclick = async (ev) => {
   b.disabled = true;
   try {
     await llamar("adminDesafioAccion", { id, accion: acc });
-    aviso({ lanzar: "Desafío lanzado.", eliminar: "Borrador eliminado.", cerrar: "Desafío cerrado.", cancelar: "Desafío cancelado y reembolsado." }[acc], true);
+    aviso({ lanzar: "Evento lanzado.", eliminar: "Borrador eliminado.", cerrar: "Evento cerrado.", cancelar: "Evento cancelado y reembolsado." }[acc], true);
     registroCargado = false;
   } catch (e) { aviso(msgErr(e)); }
   cargarDesafiosAdmin();
