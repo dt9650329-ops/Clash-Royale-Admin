@@ -192,6 +192,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="apuestas" role="tab">Apuestas</button>
       <button type="button" class="tab" data-tab="mega" role="tab">Mega Legión</button>
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
+      <button type="button" class="tab" data-tab="dinamicas" role="tab">Dinámicas</button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
       <button type="button" class="tab" data-tab="seguridad" role="tab">Seguridad</button>
     </div>
@@ -287,7 +288,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       </div>
       <div class="panel pad" style="margin-top:16px">
         <h2>Niveles y XP</h2>
-        <p class="suave">El jugador gana <b>1 XP por cada moneda que recarga</b> (los regalos no dan XP). Cada nivel desbloquea el siguiente monto de apuesta. Aquí decides cuánto XP pide cada nivel; el nivel 1 siempre empieza en 0 y cada nivel debe pedir más que el anterior. Un monto solo se puede apostar si está ✅ arriba <b>y</b> el nivel del jugador lo permite.</p>
+        <p class="suave">El jugador gana <b>1 XP por cada moneda que recarga</b> (los regalos no dan XP). Aquí decides cuánto XP pide cada nivel; el nivel 1 siempre empieza en 0 y cada nivel debe pedir más que el anterior. El nivel ya no limita las apuestas: cualquier monto que esté ✅ arriba lo puede apostar cualquier jugador.</p>
         <div id="nv-filas"></div>
         <button type="button" class="btn primario" id="nv-guardar">Guardar niveles</button>
       </div>
@@ -387,6 +388,40 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       </div>
       <h2 style="margin:16px 0 10px">Torneos</h2>
       <ul class="lista" id="torneos"></ul>
+    </section>
+
+    <section id="t-dinamicas" class="oculto">
+      <div class="panel pad">
+        <h2>Crear dinámica</h2>
+        <p class="suave">Encuesta de una pregunta. Cada jugador la responde una sola vez y recibe las monedas del premio al instante.</p>
+        <label>Título
+          <input id="d-titulo" maxlength="60" placeholder="Ej. ¿Qué torneo quieres la próxima semana?">
+        </label>
+        <label style="margin-top:10px">Pregunta
+          <input id="d-pregunta" maxlength="200" placeholder="Escribe la pregunta">
+        </label>
+        <label style="margin-top:10px">Opciones (una por línea, de 2 a 6)
+          <textarea id="d-opciones" rows="4" maxlength="500" style="resize:vertical" placeholder="Sí&#10;No"></textarea>
+        </label>
+        <div class="dos" style="margin-top:10px">
+          <label>Premio (monedas)
+            <input id="d-premio" type="number" inputmode="numeric" min="1" max="1000" step="1" value="1">
+          </label>
+          <label>Cierra (opcional)
+            <input id="d-cierra" type="datetime-local">
+          </label>
+        </div>
+        <label style="margin-top:10px">Cuándo se paga el premio
+          <select id="d-pago">
+            <option value="inmediato">Al responder (cada jugador cobra al instante)</option>
+            <option value="alcerrar">Al cerrar la dinámica (se paga solo a todos los que respondieron)</option>
+          </select>
+        </label>
+        <button type="button" class="btn primario ancho" id="d-crear" style="margin-top:12px">Crear dinámica</button>
+        <p id="d-msg" class="msg" role="status"></p>
+      </div>
+      <h2 style="margin:16px 0 10px">Dinámicas</h2>
+      <ul class="lista" id="dinamicas"></ul>
     </section>
 
     <section id="t-registro" class="oculto">
@@ -579,10 +614,11 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "dinamicas", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
   if (nombre === "apuestas") cargarApuestas();
   if (nombre === "torneos") cargarTorneos();
+  if (nombre === "dinamicas") cargarDinamicas();
   if (nombre === "compras") cargarCompras();
   if (nombre === "retiros") { cargarRetiros(); cargarRetirosConfig(); }
   if (nombre === "registro") cargarRegistro();
@@ -817,7 +853,7 @@ function pintarNiveles() {
   const caja = $("nv-filas"); caja.innerHTML = "";
   apOpciones.forEach((m, i) => {
     const f = document.createElement("div"); f.className = "nv-fila";
-    const t = document.createElement("span"); t.innerHTML = "<b>Nivel " + (i + 1) + "</b> · apuesta hasta " + m + (m === 1 ? " moneda" : " monedas");
+    const t = document.createElement("span"); t.innerHTML = "<b>Nivel " + (i + 1) + "</b>";
     const inp = document.createElement("input"); inp.type = "number"; inp.min = "0"; inp.step = "1"; inp.inputMode = "numeric";
     inp.id = "nv-xp-" + i; inp.value = nvNiveles[i] != null ? nvNiveles[i] : 0; inp.setAttribute("aria-label", "XP para el nivel " + (i + 1));
     if (i === 0) { inp.value = 0; inp.disabled = true; }
@@ -1093,6 +1129,73 @@ $("torneos").addEventListener("click", async (ev) => {
   } catch (e) { aviso(msgErr(e)); b.disabled = false; }
 });
 
+// ---------- Dinámicas (encuestas que dan monedas) ----------
+let dinAdmin = [];
+function tarjetaDinamica(d) {
+  const id = esc(d.id);
+  const estado = d.vigente ? '<span class="pill ok">Activa</span>'
+    : (d.estado === "activa" ? '<span class="pill">Venció</span>' : '<span class="pill mal">Cerrada</span>');
+  const filas = d.opciones.map((o, i) => {
+    const n = d.conteo[i] || 0, pct = d.total ? Math.round((n / d.total) * 100) : 0;
+    return "<li><b>" + esc(o) + "</b><small>" + num(n) + (n === 1 ? " voto" : " votos") + " · " + pct + "%</small></li>";
+  }).join("");
+  const btn = d.estado === "activa"
+    ? '<button type="button" class="btn peligro" data-d="cerrar" data-id="' + id + '">Cerrar encuesta</button>'
+    : (d.liquidada ? "" : '<button type="button" class="btn" data-d="abrir" data-id="' + id + '">Reabrir</button>');
+  return '<li class="perfil"><b>' + esc(d.titulo) + "</b> " + estado +
+    '<small style="display:block;color:var(--suave)">' + esc(d.pregunta) + "</small>" +
+    '<small style="display:block;color:var(--suave)">Premio: ' + num(d.premio) + (d.premio === 1 ? " moneda" : " monedas") + (d.pago === "alcerrar" ? (d.liquidada ? " (pagado a " + num(d.pagados) + ")" : " (se paga al cerrar)") : " (se paga al responder)") + " · " +
+      num(d.total) + (d.total === 1 ? " respuesta" : " respuestas") + (d.cierra ? " · cierra " + esc(fecha(d.cierra)) : "") + "</small>" +
+    '<ul class="lista" style="margin-top:10px">' + filas + "</ul>" +
+    '<div class="acciones-c">' + btn + "</div></li>";
+}
+async function cargarDinamicas() {
+  const ul = $("dinamicas");
+  try {
+    const r = await llamar("adminDinamicas");
+    dinAdmin = r.dinamicas || [];
+    ul.innerHTML = dinAdmin.length ? dinAdmin.map(tarjetaDinamica).join("") : '<li class="vacio">Todavía no hay dinámicas. Crea la primera arriba.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+$("d-crear").onclick = async () => {
+  const msg = (t, ok) => { $("d-msg").textContent = t; $("d-msg").className = "msg" + (ok ? " ok" : ""); };
+  const titulo = $("d-titulo").value.trim();
+  const pregunta = $("d-pregunta").value.trim();
+  const opciones = $("d-opciones").value.split("\n").map((x) => x.trim()).filter(Boolean);
+  const premio = Number($("d-premio").value);
+  const cierra = $("d-cierra").value ? new Date($("d-cierra").value).getTime() : null;
+  const pago = $("d-pago").value;
+  if (titulo.length < 3) { msg("Ponle un título (mínimo 3 letras)."); return; }
+  if (pregunta.length < 3) { msg("Escribe la pregunta."); return; }
+  if (opciones.length < 2 || opciones.length > 6) { msg("Pon entre 2 y 6 opciones, una por línea."); return; }
+  if (!Number.isInteger(premio) || premio < 1 || premio > 1000) { msg("El premio debe ser un número entero entre 1 y 1000 monedas."); return; }
+  if (!confirm("Cada jugador que responda recibirá " + premio + (premio === 1 ? " moneda" : " monedas") + (pago === "alcerrar" ? " cuando la dinámica se cierre (tú la cierras o llega su fecha de cierre)" : " al instante") + ". ¿Crear la dinámica?")) return;
+  const b = $("d-crear"); b.disabled = true; msg("");
+  try {
+    await llamar("adminDinamicaCrear", { titulo, pregunta, opciones, premio, cierra, pago });
+    ["d-titulo", "d-pregunta", "d-opciones", "d-cierra"].forEach((i) => { $(i).value = ""; });
+    $("d-premio").value = "1"; $("d-pago").value = "inmediato";
+    registroCargado = false;
+    msg("Dinámica creada. Ya la ven los jugadores.", true);
+    await cargarDinamicas();
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+$("dinamicas").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-d]"); if (!b) return;
+  const d = dinAdmin.find((x) => x.id === b.dataset.id); if (!d) return;
+  const cerrar = b.dataset.d === "cerrar";
+  if (!confirm((cerrar ? "¿Cerrar «" : "¿Reabrir «") + d.titulo + "»?" + (cerrar && d.pago === "alcerrar" ? "\nSe le pagará el premio a todos los que respondieron." : ""))) return;
+  b.disabled = true;
+  try {
+    const r = await llamar("adminDinamicaEstado", { id: d.id, estado: cerrar ? "cerrada" : "activa" });
+    registroCargado = false;
+    if (r.fallos) aviso("Encuesta cerrada, pero " + r.fallos + " pagos fallaron. Se reintentan solos en unos minutos.");
+    else aviso(cerrar ? "Encuesta cerrada." + (d.pago === "alcerrar" ? " Se pagó a " + num(r.pagados) + (r.pagados === 1 ? " jugador." : " jugadores.") : "") : "Encuesta reabierta.", true);
+    await cargarDinamicas();
+  } catch (e) { aviso(msgErr(e)); b.disabled = false; }
+});
+
 // ---------- Registro ----------
 function textoAccion(r) {
   switch (r.accion) {
@@ -1113,6 +1216,8 @@ function textoAccion(r) {
     case "torneo-estado": return "Cambió el estado de un torneo" + (r.despues ? " a " + r.despues : "");
     case "torneo-ganador": return "Declaró al ganador de un torneo";
     case "torneo-premio": return "Marcó el pase de un torneo como entregado";
+    case "dinamica-crear": return "Creó una dinámica con premio de " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas");
+    case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
     default: return r.accion || "";
   }
 }
@@ -1125,7 +1230,7 @@ async function cargarRegistro() {
     const lista = r.registros || [];
     ul.innerHTML = lista.length ? lista.map((x) => {
       const c = cuentas.find((y) => y.uid === x.uid);
-      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
+      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : String(x.accion || "").startsWith("dinamica-") ? "Dinámicas" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
         "<small>" + esc(fecha(x.fecha)) + " · " + esc(x.admin) + (x.motivo ? " · " + esc(x.motivo) : "") + "</small></li>";
     }).join("") : '<li class="vacio">Todavía no hay acciones.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
