@@ -397,7 +397,40 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <p class="suave">Ej.: «5 victorias seguidas en subida de copas = 20 créditos». Se guarda como <b>borrador</b>: puedes editarlo (incluida la inscripción) y cuando estés listo lo lanzas. El jugador paga la inscripción al entrar; el premio se acredita solo al cumplir la meta, hasta completar el tope de ganadores.</p>
         <label>Título<input id="ds-titulo" maxlength="60" placeholder="Ej. Racha de 5 victorias"></label>
         <label>Descripción (opcional)<textarea id="ds-desc" rows="2" maxlength="250" style="resize:vertical"></textarea></label>
-        <label>Victorias seguidas para ganar<input id="ds-victorias" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="5"></label>
+        <label>Tipo de evento
+          <select id="ds-tipo">
+            <option value="victorias">Ganar la partida</option>
+            <option value="sin_perder">No perder la partida (empatar también vale)</option>
+            <option value="defensa">Que no le tumben tantas coronas (gane o pierda)</option>
+            <option value="coronas">Tumbar coronas propias</option>
+            <option value="cartas">Usar cartas específicas (y ganar)</option>
+          </select>
+        </label>
+        <div id="ds-extra-defensa" class="oculto">
+          <label>Máximo de coronas que le pueden tumbar
+            <select id="ds-tolerancia">
+              <option value="0">0 (no le pueden tumbar ninguna)</option>
+              <option value="1">1 (le pueden tumbar hasta 1)</option>
+              <option value="2">2 (le pueden tumbar hasta 2, pero no las 3)</option>
+            </select>
+          </label>
+        </div>
+        <div id="ds-extra-coronas" class="oculto">
+          <label>Coronas mínimas que debe tumbar en cada partida
+            <select id="ds-coronasmin">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3 (victoria perfecta)</option>
+            </select>
+          </label>
+        </div>
+        <div id="ds-extra-cartas" class="oculto">
+          <label>Cartas que debe usar (1 a 3, separadas por coma)
+            <input id="ds-cartas" maxlength="100" placeholder="Ej. Mago de Hielo, Esqueletos">
+          </label>
+          <p class="suave" style="margin:4px 0 0">Deben estar en el mazo de la partida que gane (no importa el orden ni si las jugó o no dentro del combate). Escribe el nombre tal como aparece en Clash Royale.</p>
+        </div>
+        <label>Veces seguidas para ganar<input id="ds-victorias" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="5"></label>
         <label>Premio (créditos para cada ganador)<input id="ds-premio" type="number" inputmode="numeric" min="1" step="1" placeholder="20"></label>
         <label>Tope de ganadores<input id="ds-tope" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="10"></label>
         <label>Cobro de inscripción (créditos, 0 = gratis)<input id="ds-inscripcion" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></label>
@@ -1181,9 +1214,28 @@ function dsRiesgo() {
   $("ds-riesgo").textContent = premio && tope ? "Lo máximo que puedes pagar en premios: " + num(premio * tope) + " créditos (" + num(premio) + " × " + num(tope) + "). Una inscripción de " + num(insc) + " créditos por jugador te devuelve parte." : "";
 }
 ["ds-premio", "ds-tope", "ds-inscripcion"].forEach((i) => $(i).addEventListener("input", dsRiesgo));
+const DESAFIO_TIPO_TEXTO = {
+  victorias: "victoria(s) seguida(s)", sin_perder: "partida(s) seguida(s) sin perder",
+  defensa: "partida(s) seguida(s)", coronas: "partida(s) seguida(s)", cartas: "partida(s) ganada(s) seguida(s)",
+};
+function dsCondicionTexto(d) {
+  const n = d.victorias;
+  if (d.tipo === "defensa") return n + " " + DESAFIO_TIPO_TEXTO.defensa + " sin que le tumben más de " + (d.toleranciaCoronas != null ? d.toleranciaCoronas : 0) + " corona(s)";
+  if (d.tipo === "coronas") return n + " " + DESAFIO_TIPO_TEXTO.coronas + " tumbando al menos " + (d.coronasMinimas || 3) + " corona(s) cada una";
+  if (d.tipo === "cartas") return n + " " + DESAFIO_TIPO_TEXTO.cartas + " usando: " + (d.cartas || []).join(", ");
+  return n + " " + (DESAFIO_TIPO_TEXTO[d.tipo] || DESAFIO_TIPO_TEXTO.victorias);
+}
+function dsActualizarTipo() {
+  const tipo = $("ds-tipo").value;
+  $("ds-extra-defensa").classList.toggle("oculto", tipo !== "defensa");
+  $("ds-extra-coronas").classList.toggle("oculto", tipo !== "coronas");
+  $("ds-extra-cartas").classList.toggle("oculto", tipo !== "cartas");
+}
+$("ds-tipo").addEventListener("change", dsActualizarTipo);
 function dsLimpiarForm() {
   dsEditando = null;
-  ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-inscripcion", "ds-horas"].forEach((i) => { $(i).value = ""; });
+  ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-inscripcion", "ds-horas", "ds-cartas"].forEach((i) => { $(i).value = ""; });
+  $("ds-tipo").value = "victorias"; $("ds-tolerancia").value = "0"; $("ds-coronasmin").value = "3"; dsActualizarTipo();
   $("ds-titulo-form").textContent = "Crear evento de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
 }
 $("ds-cancelar-edicion").onclick = dsLimpiarForm;
@@ -1194,7 +1246,7 @@ async function cargarDesafiosAdmin() {
     $("ds-lista").innerHTML = lista.map((d) => {
       const id = esc(d.id);
       const btn = (acc, txt, cls) => '<button type="button" class="btn ' + cls + '" data-ds="' + acc + '" data-id="' + id + '">' + txt + "</button>";
-      return "<li><b>" + esc(d.titulo) + "</b> — " + d.victorias + " victoria(s) seguidas = " + num(d.premio) + " créditos" +
+      return "<li><b>" + esc(d.titulo) + "</b> — " + esc(dsCondicionTexto(d)) + " = " + num(d.premio) + " créditos" +
         "<small>Inscripción: " + (d.inscripcion ? num(d.inscripcion) + " créditos" : "gratis") + " · Tope: " + num(d.tope) + " ganadores · Duración: " + num(d.duracionHoras) + " h</small>" +
         (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
         (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
@@ -1217,6 +1269,11 @@ $("ds-lista").onclick = async (ev) => {
     dsEditando = id;
     $("ds-titulo").value = d.titulo; $("ds-desc").value = d.descripcion; $("ds-victorias").value = d.victorias; $("ds-premio").value = d.premio;
     $("ds-tope").value = d.tope; $("ds-inscripcion").value = d.inscripcion; $("ds-horas").value = d.duracionHoras;
+    $("ds-tipo").value = d.tipo || "victorias";
+    $("ds-tolerancia").value = d.toleranciaCoronas != null ? d.toleranciaCoronas : "0";
+    $("ds-coronasmin").value = d.coronasMinimas || "3";
+    $("ds-cartas").value = (d.cartas || []).join(", ");
+    dsActualizarTipo();
     $("ds-titulo-form").textContent = "Editar borrador"; $("ds-guardar").textContent = "Guardar cambios"; $("ds-cancelar-edicion").hidden = false; dsRiesgo();
     window.scrollTo(0, 0); return;
   }
@@ -1239,9 +1296,13 @@ $("ds-guardar").onclick = async () => {
   const msg = $("ds-msg"); msg.textContent = ""; msg.className = "msg";
   const b = $("ds-guardar"); b.disabled = true;
   try {
+    const tipo = $("ds-tipo").value;
     await llamar("adminDesafioGuardar", {
-      id: dsEditando, titulo: $("ds-titulo").value, descripcion: $("ds-desc").value, victorias: Number($("ds-victorias").value),
+      id: dsEditando, titulo: $("ds-titulo").value, descripcion: $("ds-desc").value, tipo, victorias: Number($("ds-victorias").value),
       premio: Number($("ds-premio").value), tope: Number($("ds-tope").value), inscripcion: Number($("ds-inscripcion").value || 0), duracionHoras: Number($("ds-horas").value),
+      toleranciaCoronas: tipo === "defensa" ? Number($("ds-tolerancia").value) : undefined,
+      coronasMinimas: tipo === "coronas" ? Number($("ds-coronasmin").value) : undefined,
+      cartas: tipo === "cartas" ? $("ds-cartas").value.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
     });
     aviso(dsEditando ? "Cambios guardados." : "Borrador guardado. Pulsa «Lanzar» cuando esté listo.", true);
     registroCargado = false;
