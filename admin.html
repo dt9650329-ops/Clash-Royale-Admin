@@ -433,6 +433,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <label>Veces seguidas para ganar<input id="ds-victorias" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="5"></label>
         <label>Premio (créditos para cada ganador)<input id="ds-premio" type="number" inputmode="numeric" min="1" step="1" placeholder="20"></label>
         <label>Tope de ganadores<input id="ds-tope" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="10"></label>
+        <label>Cupo máximo de inscritos (vacío = sin límite)<input id="ds-cupo" type="number" inputmode="numeric" min="1" max="1000" step="1" placeholder="Ej. 20"></label>
         <label>Cobro de inscripción (créditos, 0 = gratis)<input id="ds-inscripcion" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></label>
         <label>Duración una vez lanzado (horas)<input id="ds-horas" type="number" inputmode="numeric" min="1" max="720" step="1" placeholder="168"></label>
         <p id="ds-riesgo" class="suave"></p>
@@ -1234,7 +1235,7 @@ function dsActualizarTipo() {
 $("ds-tipo").addEventListener("change", dsActualizarTipo);
 function dsLimpiarForm() {
   dsEditando = null;
-  ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-inscripcion", "ds-horas", "ds-cartas"].forEach((i) => { $(i).value = ""; });
+  ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-cupo", "ds-inscripcion", "ds-horas", "ds-cartas"].forEach((i) => { $(i).value = ""; });
   $("ds-tipo").value = "victorias"; $("ds-tolerancia").value = "0"; $("ds-coronasmin").value = "3"; dsActualizarTipo();
   $("ds-titulo-form").textContent = "Crear evento de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
 }
@@ -1247,8 +1248,8 @@ async function cargarDesafiosAdmin() {
       const id = esc(d.id);
       const btn = (acc, txt, cls) => '<button type="button" class="btn ' + cls + '" data-ds="' + acc + '" data-id="' + id + '">' + txt + "</button>";
       return "<li><b>" + esc(d.titulo) + "</b> — " + esc(dsCondicionTexto(d)) + " = " + num(d.premio) + " créditos" +
-        "<small>Inscripción: " + (d.inscripcion ? num(d.inscripcion) + " créditos" : "gratis") + " · Tope: " + num(d.tope) + " ganadores · Duración: " + num(d.duracionHoras) + " h</small>" +
-        (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
+        "<small>Inscripción: " + (d.inscripcion ? num(d.inscripcion) + " créditos" : "gratis") + " · Tope: " + num(d.tope) + " ganadores · Cupo de inscritos: " + (d.cupoInscritos ? num(d.cupoInscritos) : "sin límite") + " · Duración: " + num(d.duracionHoras) + " h</small>" +
+        (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + (d.cupoInscritos ? " de " + num(d.cupoInscritos) : "") + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
         (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
         (d.ganadores.length ? "<small>Ganaron: <b>" + esc(d.ganadores.join(", ")) + "</b></small>" : "") +
         (d.inscritosLista.length ? "<details><summary>Ver inscritos (" + d.inscritosLista.length + ")</summary><ul class=\"reg\">" + d.inscritosLista.map((x) => {
@@ -1268,7 +1269,7 @@ $("ds-lista").onclick = async (ev) => {
   if (acc === "editar") {
     dsEditando = id;
     $("ds-titulo").value = d.titulo; $("ds-desc").value = d.descripcion; $("ds-victorias").value = d.victorias; $("ds-premio").value = d.premio;
-    $("ds-tope").value = d.tope; $("ds-inscripcion").value = d.inscripcion; $("ds-horas").value = d.duracionHoras;
+    $("ds-tope").value = d.tope; $("ds-cupo").value = d.cupoInscritos || ""; $("ds-inscripcion").value = d.inscripcion; $("ds-horas").value = d.duracionHoras;
     $("ds-tipo").value = d.tipo || "victorias";
     $("ds-tolerancia").value = d.toleranciaCoronas != null ? d.toleranciaCoronas : "0";
     $("ds-coronasmin").value = d.coronasMinimas || "3";
@@ -1299,7 +1300,8 @@ $("ds-guardar").onclick = async () => {
     const tipo = $("ds-tipo").value;
     await llamar("adminDesafioGuardar", {
       id: dsEditando, titulo: $("ds-titulo").value, descripcion: $("ds-desc").value, tipo, victorias: Number($("ds-victorias").value),
-      premio: Number($("ds-premio").value), tope: Number($("ds-tope").value), inscripcion: Number($("ds-inscripcion").value || 0), duracionHoras: Number($("ds-horas").value),
+      premio: Number($("ds-premio").value), tope: Number($("ds-tope").value), cupoInscritos: $("ds-cupo").value ? Number($("ds-cupo").value) : null,
+      inscripcion: Number($("ds-inscripcion").value || 0), duracionHoras: Number($("ds-horas").value),
       toleranciaCoronas: tipo === "defensa" ? Number($("ds-tolerancia").value) : undefined,
       coronasMinimas: tipo === "coronas" ? Number($("ds-coronasmin").value) : undefined,
       cartas: tipo === "cartas" ? $("ds-cartas").value.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
