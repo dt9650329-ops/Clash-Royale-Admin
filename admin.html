@@ -137,6 +137,13 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
 .logo-mini{width:46px;height:46px}
 .topbar{background:rgba(5,11,32,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .panel{background:rgba(12,26,69,.80);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 8px 26px rgba(0,0,0,.35),inset 0 0 0 1px rgba(41,221,251,.07)}
+.ap-res{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
+.ap-res>div{background:rgba(5,11,32,.55);border:1px solid var(--linea);border-radius:10px;padding:8px 4px;text-align:center}
+.ap-res small{display:block;color:var(--suave);font-size:.76rem}
+.ap-res b{font-size:1.05rem}
+.ap-gan{color:#4ade80}.ap-per{color:#f87171}
+.ap-det{margin:8px 0 2px}.ap-det summary{cursor:pointer;color:var(--cian)}
+.ap-det li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--linea);font-size:.92rem}
 </style>
 </head>
 <body>
@@ -214,6 +221,9 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           <option value="ingreso">Último ingreso</option>
           <option value="creditos">Más créditos</option>
           <option value="victorias">Más victorias</option>
+          <option value="ganado">Más monedas ganadas</option>
+          <option value="perdido">Más monedas perdidas</option>
+          <option value="jugadas">Más apuestas jugadas</option>
           <option value="nombre">Nombre (A-Z)</option>
         </select>
       </div>
@@ -609,9 +619,28 @@ const ORDENES = {
   ingreso: (a, b) => (b.ultimoIngreso || 0) - (a.ultimoIngreso || 0),
   creditos: (a, b) => (b.creditos || 0) - (a.creditos || 0),
   victorias: (a, b) => (b.victorias || 0) - (a.victorias || 0),
+  ganado: (a, b) => ((b.apuestas || {}).ganado || 0) - ((a.apuestas || {}).ganado || 0),
+  perdido: (a, b) => ((b.apuestas || {}).perdido || 0) - ((a.apuestas || {}).perdido || 0),
+  jugadas: (a, b) => ((b.apuestas || {}).jugadas || 0) - ((a.apuestas || {}).jugadas || 0),
   nombre: (a, b) => (a.nombre || a.correo).localeCompare(b.nombre || b.correo, "es"),
 };
 const coincide = (c, q) => [c.nombre, c.correo, c.tag, c.telefono, c.uid].some((x) => String(x || "").toLowerCase().includes(q));
+
+// Apuestas del perfil: jugadas, ganadas, perdidas, monedas ganadas/perdidas, neto y últimas partidas.
+const sg = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + num(Math.abs(n));
+const RESULTADO_AP = { g: "Ganó", p: "Perdió", e: "Empate", s: "Sin jugar" };
+function bloqueApuestas(c) {
+  const a = c.apuestas;
+  if (!a) return '<p class="suave" style="margin:12px 0 0">Sin apuestas todavía.</p>';
+  const t = (k, v, cl) => '<div><small>' + k + '</small><b' + (cl ? ' class="' + cl + '"' : "") + '>' + v + '</b></div>';
+  const ult = (a.ultimas || []).map((u) => '<li><span>' + esc(fecha(u.f)) + ' · vs ' + esc(u.vs) + ' · ' + num(u.m) + '</span><b class="' + (u.t === "g" ? "ap-gan" : u.t === "p" ? "ap-per" : "") + '">' +
+    (u.t === "g" || u.t === "p" ? sg(u.d) : RESULTADO_AP[u.t]) + '</b></li>').join("");
+  return '<div class="ap-res">' + t("Jugadas", num(a.jugadas)) + t("Ganadas", num(a.ganadas)) + t("Perdidas", num(a.perdidas)) +
+    t("Monedas ganadas", "+" + num(a.ganado), "ap-gan") + t("Monedas perdidas", "−" + num(a.perdido), "ap-per") +
+    t("Neto", sg(a.neto), a.neto > 0 ? "ap-gan" : a.neto < 0 ? "ap-per" : "") + '</div>' +
+    (a.enJuego ? '<p class="suave" style="margin:6px 0 0">En apuestas abiertas o en juego: ' + num(a.enJuego) + ' monedas</p>' : "") +
+    (ult ? '<details class="ap-det"><summary>Últimas apuestas</summary><ul style="list-style:none;margin:6px 0 0;padding:0">' + ult + '</ul></details>' : "");
+}
 
 function tarjeta(c) {
   const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v || "—") + "</dd>";
@@ -625,7 +654,7 @@ function tarjeta(c) {
     '<dl class="p-datos">' +
       fila("Teléfono", c.telefono) + fila("Tag", c.tag) + "<dt>Enlace de amigo</dt><dd>" + enlace + "</dd>" +
       fila("Victorias", num(c.victorias)) + fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid) +
-    '</dl>' +
+    '</dl>' + bloqueApuestas(c) +
     '<div class="p-acc">' +
       '<button type="button" class="btn primario" data-acc="creditos" data-uid="' + esc(c.uid) + '">Cargar créditos</button>' +
       '<button type="button" class="btn' + (c.suspendido ? "" : " peligro") + '" data-acc="estado" data-uid="' + esc(c.uid) + '"' + (c.esAdmin ? " disabled" : "") + '>' + (c.suspendido ? "Reactivar" : "Suspender") + '</button>' +
@@ -635,7 +664,9 @@ function tarjeta(c) {
 function pintarLista() {
   const q = busqueda.trim().toLowerCase();
   const filas = cuentas.filter(FILTROS[filtro]).filter((c) => !q || coincide(c, q)).sort(ORDENES[orden]);
-  $("contador").textContent = filas.length + (filas.length === 1 ? " cuenta" : " cuentas");
+  const apj = filas.reduce((t, c) => t + ((c.apuestas || {}).jugadas || 0), 0) / 2;   // cada apuesta cuenta en dos perfiles
+  const apm = filas.reduce((t, c) => t + ((c.apuestas || {}).perdido || 0), 0);        // monedas que cambiaron de manos
+  $("contador").textContent = filas.length + (filas.length === 1 ? " cuenta" : " cuentas") + (apj ? " · " + num(Math.round(apj)) + " apuestas · " + num(apm) + " monedas ganadas/perdidas" : "");
   $("lista").innerHTML = filas.length ? filas.map(tarjeta).join("") : '<li class="vacio">No hay cuentas con ese filtro.</li>';
   pintarSeleccion();
 }
