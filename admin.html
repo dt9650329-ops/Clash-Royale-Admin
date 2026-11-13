@@ -406,31 +406,31 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <h2 id="ds-titulo-form">Crear evento de racha</h2>
         <p class="suave">Ej.: «5 victorias seguidas en subida de copas = 20 créditos». Se guarda como <b>borrador</b>: puedes editarlo (incluida la inscripción) y cuando estés listo lo lanzas. El jugador paga la inscripción al entrar; el premio se acredita solo al cumplir la meta, hasta completar el tope de ganadores.</p>
         <label>Título<input id="ds-titulo" maxlength="60" placeholder="Ej. Racha de 5 victorias"></label>
-        <label>Descripción (opcional)<textarea id="ds-desc" rows="2" maxlength="250" style="resize:vertical"></textarea></label>
+        <label>Descripción para el jugador (opcional)<textarea id="ds-desc" rows="3" maxlength="250" style="resize:vertical" placeholder="Explica el evento en palabras simples. Ej. Juega en la escalera de Clash Royale y gana 5 partidas sin perder ninguna."></textarea></label>
         <label>Tipo de evento
           <select id="ds-tipo">
             <option value="victorias">Ganar la partida</option>
             <option value="sin_perder">No perder la partida (empatar también vale)</option>
-            <option value="defensa">Que no le tumben tantas coronas (gane o pierda)</option>
-            <option value="coronas">Tumbar coronas propias</option>
+            <option value="defensa">Que no le tumben tantas torres</option>
+            <option value="coronas">Tumbar torres rivales</option>
             <option value="cartas">Usar cartas específicas (y ganar)</option>
           </select>
         </label>
         <div id="ds-extra-defensa" class="oculto">
-          <label>Máximo de coronas que le pueden tumbar
+          <label>Máximo de torres que le pueden tumbar
             <select id="ds-tolerancia">
-              <option value="0">0 (no le pueden tumbar ninguna)</option>
-              <option value="1">1 (le pueden tumbar hasta 1)</option>
-              <option value="2">2 (le pueden tumbar hasta 2, pero no las 3)</option>
+              <option value="0">0 (no le pueden tumbar ninguna torre)</option>
+              <option value="1">1 (le pueden tumbar hasta 1 torre)</option>
+              <option value="2">2 (le pueden tumbar hasta 2 torres, pero no las 3)</option>
             </select>
           </label>
         </div>
         <div id="ds-extra-coronas" class="oculto">
-          <label>Coronas mínimas que debe tumbar en cada partida
+          <label>Torres mínimas que debe tumbar en cada partida
             <select id="ds-coronasmin">
               <option value="1">1</option>
               <option value="2">2</option>
-              <option value="3">3 (victoria perfecta)</option>
+              <option value="3">3 (todas las torres rivales)</option>
             </select>
           </label>
         </div>
@@ -1252,8 +1252,8 @@ const DESAFIO_TIPO_TEXTO = {
 };
 function dsCondicionTexto(d) {
   const n = d.victorias;
-  if (d.tipo === "defensa") return n + " " + DESAFIO_TIPO_TEXTO.defensa + " sin que le tumben más de " + (d.toleranciaCoronas != null ? d.toleranciaCoronas : 0) + " corona(s)";
-  if (d.tipo === "coronas") return n + " " + DESAFIO_TIPO_TEXTO.coronas + " tumbando al menos " + (d.coronasMinimas || 3) + " corona(s) cada una";
+  if (d.tipo === "defensa") return n + " " + DESAFIO_TIPO_TEXTO.defensa + " sin que le tumben más de " + (d.toleranciaCoronas != null ? d.toleranciaCoronas : 0) + " torre(s)";
+  if (d.tipo === "coronas") return n + " " + DESAFIO_TIPO_TEXTO.coronas + " tumbando al menos " + (d.coronasMinimas || 3) + " torre(s) rival(es) cada una";
   if (d.tipo === "cartas") return n + " " + DESAFIO_TIPO_TEXTO.cartas + " usando: " + (d.cartas || []).join(", ");
   return n + " " + (DESAFIO_TIPO_TEXTO[d.tipo] || DESAFIO_TIPO_TEXTO.victorias);
 }
@@ -1279,6 +1279,7 @@ async function cargarDesafiosAdmin() {
       const id = esc(d.id);
       const btn = (acc, txt, cls) => '<button type="button" class="btn ' + cls + '" data-ds="' + acc + '" data-id="' + id + '">' + txt + "</button>";
       return "<li><b>" + esc(d.titulo) + "</b> — " + esc(dsCondicionTexto(d)) + " = " + num(d.premio) + " créditos" +
+        "<small>Descripción que ve el jugador: " + (d.descripcion ? "<b>" + esc(d.descripcion) + "</b>" : "(vacía)") + "</small>" +
         "<small>Inscripción: " + (d.inscripcion ? num(d.inscripcion) + " créditos" : "gratis") + " · Tope: " + num(d.tope) + " ganadores · Cupo de inscritos: " + (d.cupoInscritos ? num(d.cupoInscritos) : "sin límite") + " · Duración: " + num(d.duracionHoras) + " h</small>" +
         (d.estado === "borrador" ? "" : "<small>Inscritos: " + num(d.inscritos) + (d.cupoInscritos ? " de " + num(d.cupoInscritos) : "") + " · Ganadores: " + num(d.ganadoresN) + " de " + num(d.tope) + " · Inscripciones cobradas: " + num(d.inscritos * d.inscripcion) + " créditos · Premios: " + num(d.ganadoresN * d.premio) + "</small>") +
         (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
