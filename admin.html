@@ -329,6 +329,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           <button type="button" class="btn primario" id="sg-auditar">Auditar saldos</button>
           <button type="button" class="btn" id="sg-firmar">Firmar saldos</button>
           <button type="button" class="btn" id="sg-xp">Recalcular XP</button>
+          <button type="button" class="btn peligro" id="sg-bonos">Pasar todos los créditos a bonos</button>
         </div>
         <div class="sg-res" id="sg-res" hidden></div>
       </div>
@@ -1015,6 +1016,20 @@ $("sg-firmar").onclick = async () => {
   catch (e) { sgMostrar("No se pudo firmar: " + esc(msgErr(e))); }
   b.disabled = false;
 };
+$("sg-bonos").onclick = async () => {
+  if (!confirm("Esto pasa los créditos retirables de TODAS las cuentas a bonos (se juegan, pero no se retiran). Úsalo solo si nadie ha recargado todavía. ¿Continuar?")) return;
+  if (!confirm("Última confirmación: ningún jugador podrá retirar hasta que apueste esos bonos y gane. ¿Pasar todo a bonos?")) return;
+  const b = $("sg-bonos"); b.disabled = true; sgMostrar("Pasando a bonos…");
+  try {
+    const r = await llamar("adminTodoABonos"); registroCargado = false;
+    let h = "Listo: <b>" + num(r.movidos) + "</b> créditos de <b>" + num(r.cuentas) + "</b> cuentas pasaron a bonos.";
+    if (r.omitidas && r.omitidas.length) h += "<br>⚠️ Se omitieron " + num(r.omitidas.length) + " cuentas con saldo alterado (corrígelas con «fijar»): " + r.omitidas.map((f) => esc(f.nombre || f.correo || f.uid)).join(", ");
+    if (r.retirosPendientes) h += "<br>⚠️ Hay " + num(r.retirosPendientes) + " retiros pendientes: si rechazas alguno, esos créditos vuelven como retirables.";
+    sgMostrar(h);
+    await cargar();
+  } catch (e) { sgMostrar("No se pudo: " + esc(msgErr(e))); }
+  b.disabled = false;
+};
 $("sg-xp").onclick = async () => {
   if (!confirm("Esto reconstruye el XP de todos los jugadores desde sus recargas aprobadas. Se puede repetir sin riesgo. ¿Continuar?")) return;
   const b = $("sg-xp"); b.disabled = true; sgMostrar("Recalculando…");
@@ -1479,6 +1494,7 @@ function textoAccion(r) {
     case "torneo-premio": return "Marcó el pase de un torneo como entregado";
     case "dinamica-crear": return "Creó una dinámica con premio de " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas");
     case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
+    case "todo-a-bonos": return "Pasó " + num(r.monto) + " créditos a bonos (" + (r.motivo || "") + ")";
     default: return r.accion || "";
   }
 }
