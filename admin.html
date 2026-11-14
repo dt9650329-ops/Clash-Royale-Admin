@@ -244,6 +244,12 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
 
         <div id="c-form" class="oculto">
           <div class="dos">
+            <label>Tipo de saldo
+              <select id="c-tipo">
+                <option value="recargado">Créditos recargados (se pueden retirar)</option>
+                <option value="bono">Bonos (se juegan, no se retiran)</option>
+              </select>
+            </label>
             <label>Acción
               <select id="c-modo">
                 <option value="sumar">Cargar (sumar)</option>
@@ -411,17 +417,18 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           <select id="ds-tipo">
             <option value="victorias">Ganar la partida</option>
             <option value="sin_perder">No perder la partida (empatar también vale)</option>
-            <option value="defensa">Defensa de torres</option>
-            <option value="coronas">Tumbar torres enemigas</option>
+            <option value="defensa">Que no le tumben tantas torres</option>
+            <option value="coronas">Tumbar torres rivales</option>
             <option value="cartas">Usar cartas específicas (y ganar)</option>
           </select>
         </label>
         <div id="ds-extra-defensa" class="oculto">
-          <label>Defensa de torres: que no le tumben
-<select id="ds-tolerancia">
-<option value="1">Más de 1 torre (puede perder 1 como máximo)</option>
-<option value="2">Más de 2 torres (puede perder 2 como máximo, pero no las 3)</option>
-</select>
+          <label>Máximo de torres que le pueden tumbar
+            <select id="ds-tolerancia">
+              <option value="0">0 (no le pueden tumbar ninguna torre)</option>
+              <option value="1">1 (le pueden tumbar hasta 1 torre)</option>
+              <option value="2">2 (le pueden tumbar hasta 2 torres, pero no las 3)</option>
+            </select>
           </label>
         </div>
         <div id="ds-extra-coronas" class="oculto">
@@ -473,13 +480,10 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           <label>Premio (monedas)
             <input id="d-premio" type="number" inputmode="numeric" min="1" max="1000" step="1" value="1">
           </label>
-          <label>Costo de entrada (créditos, 0 = gratis)
-            <input id="d-costo" type="number" inputmode="numeric" min="0" max="1000" step="1" value="0">
+          <label>Cierra (opcional)
+            <input id="d-cierra" type="datetime-local">
           </label>
         </div>
-        <label style="margin-top:10px">Cierra (opcional)
-          <input id="d-cierra" type="datetime-local">
-        </label>
         <label style="margin-top:10px">Cuándo se paga el premio
           <select id="d-pago">
             <option value="inmediato">Al responder (cada jugador cobra al instante)</option>
@@ -652,7 +656,7 @@ function tarjeta(c) {
   return '<li class="perfil">' +
     '<div class="p-cab"><span class="avatar">' + esc(inicial(c)) + '</span>' +
     '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small></span>' +
-    '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + pills(c) + '</span></div>' +
+    '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + (c.bonos ? '<small> +' + num(c.bonos) + ' bonos</small>' : '') + pills(c) + '</span></div>' +
     '<dl class="p-datos">' +
       fila("Teléfono", c.telefono) + fila("Tag", c.tag) + "<dt>Enlace de amigo</dt><dd>" + enlace + "</dd>" +
       fila("Victorias", num(c.victorias)) + fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid) +
@@ -735,7 +739,7 @@ function pintarResultados() {
     '<li><button type="button" class="cuenta" data-uid="' + esc(c.uid) + '">' +
     '<span class="avatar">' + esc(inicial(c)) + '</span>' +
     '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + '</small></span>' +
-    '<span class="der"><span class="cred">' + num(c.creditos) + '</span></span></button></li>').join("")
+    '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + (c.bonos ? '<small> +' + num(c.bonos) + ' bonos</small>' : '') + '</span></button></li>').join("")
     : '<li class="vacio">Sin resultados.</li>';
 }
 $("c-buscar").addEventListener("input", pintarResultados);
@@ -762,7 +766,7 @@ function pintarSeleccion() {
   if (!c) return;
   $("c-sel").innerHTML = '<div class="sel-fila"><span class="avatar">' + esc(inicial(c)) + '</span>' +
     '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + '</small></span></div>' +
-    '<div class="sel-pie"><div><small style="color:var(--suave)">Saldo actual</small><div class="saldo">' + num(c.creditos) + '</div>' + pills(c) + '</div>' +
+    '<div class="sel-pie"><div><small style="color:var(--suave)">Saldo actual</small><div class="saldo">' + num(c.creditos) + '</div><small style="color:var(--suave)">Bonos: ' + num(c.bonos || 0) + '</small>' + pills(c) + '</div>' +
     '<button type="button" class="btn" id="c-cambiar">Cambiar cuenta</button></div>';
   $("c-cambiar").onclick = () => { seleccionada = null; $("c-msg").textContent = ""; pintarSeleccion(); $("c-buscar").focus(); };
 }
@@ -778,15 +782,16 @@ $("c-aplicar").onclick = async () => {
   const msg = (t, ok) => { $("c-msg").textContent = t; $("c-msg").className = "msg" + (ok ? " ok" : ""); };
   if (!Number.isInteger(monto) || monto < (modo === "fijar" ? 0 : 1)) { msg("Escribe un monto entero válido."); return; }
   const verbo = { sumar: "cargar", restar: "quitar", fijar: "fijar el saldo en" }[modo];
-  if (!confirm("¿Seguro que quieres " + verbo + " " + num(monto) + " créditos " + (modo === "sumar" ? "a " : modo === "restar" ? "a " : "de ") + (c.nombre || c.correo) + "?")) return;
+  const tipo = $("c-tipo").value;
+  if (!confirm("¿Seguro que quieres " + verbo + " " + num(monto) + (tipo === "bono" ? " BONOS " : " créditos ") + (modo === "sumar" ? "a " : modo === "restar" ? "a " : "de ") + (c.nombre || c.correo) + "?")) return;
   const b = $("c-aplicar"); b.disabled = true; msg("");
   try {
-    const r = await llamar("adminCreditos", { uid: c.uid, modo, monto, motivo: $("c-motivo").value.trim() });
-    c.creditos = r.creditos;
+    const r = await llamar("adminCreditos", { uid: c.uid, modo, monto, tipo, motivo: $("c-motivo").value.trim() });
+    c.creditos = r.creditos; c.bonos = r.bonos;
     $("c-monto").value = ""; $("c-motivo").value = "";
     registroCargado = false;
     pintarStats(); pintarLista();
-    msg("Listo. Nuevo saldo de " + (c.nombre || c.correo) + ": " + num(r.creditos), true);
+    msg("Listo. " + (c.nombre || c.correo) + " ahora tiene " + num(r.creditos) + " créditos y " + num(r.bonos) + " bonos.", true);
   } catch (e) { msg(msgErr(e)); }
   b.disabled = false;
 };
@@ -1235,7 +1240,7 @@ function tarjetaDinamica(d) {
     : (d.liquidada ? "" : '<button type="button" class="btn" data-d="abrir" data-id="' + id + '">Reabrir</button>');
   return '<li class="perfil"><b>' + esc(d.titulo) + "</b> " + estado +
     '<small style="display:block;color:var(--suave)">' + esc(d.pregunta) + "</small>" +
-    '<small style="display:block;color:var(--suave)">' + (d.costo ? "Entrada: " + num(d.costo) + (d.costo === 1 ? " crédito" : " créditos") + " · " : "Gratis · ") + "Premio: " + num(d.premio) + (d.premio === 1 ? " moneda" : " monedas") + (d.pago === "alcerrar" ? (d.liquidada ? " (pagado a " + num(d.pagados) + ")" : " (se paga al cerrar)") : " (se paga al responder)") + " · " +
+    '<small style="display:block;color:var(--suave)">Premio: ' + num(d.premio) + (d.premio === 1 ? " moneda" : " monedas") + (d.pago === "alcerrar" ? (d.liquidada ? " (pagado a " + num(d.pagados) + ")" : " (se paga al cerrar)") : " (se paga al responder)") + " · " +
       num(d.total) + (d.total === 1 ? " respuesta" : " respuestas") + (d.cierra ? " · cierra " + esc(fecha(d.cierra)) : "") + "</small>" +
     '<ul class="lista" style="margin-top:10px">' + filas + "</ul>" +
     '<div class="acciones-c">' + btn + "</div></li>";
@@ -1269,7 +1274,7 @@ $("ds-tipo").addEventListener("change", dsActualizarTipo);
 function dsLimpiarForm() {
   dsEditando = null;
   ["ds-titulo", "ds-desc", "ds-victorias", "ds-premio", "ds-tope", "ds-cupo", "ds-inscripcion", "ds-horas", "ds-cartas"].forEach((i) => { $(i).value = ""; });
-  $("ds-tipo").value = "victorias"; $("ds-tolerancia").value = "1"; $("ds-coronasmin").value = "3"; dsActualizarTipo();
+  $("ds-tipo").value = "victorias"; $("ds-tolerancia").value = "0"; $("ds-coronasmin").value = "3"; dsActualizarTipo();
   $("ds-titulo-form").textContent = "Crear evento de racha"; $("ds-guardar").textContent = "Guardar borrador"; $("ds-cancelar-edicion").hidden = true; dsRiesgo();
 }
 $("ds-cancelar-edicion").onclick = dsLimpiarForm;
@@ -1362,20 +1367,18 @@ $("d-crear").onclick = async () => {
   const pregunta = $("d-pregunta").value.trim();
   const opciones = $("d-opciones").value.split("\n").map((x) => x.trim()).filter(Boolean);
   const premio = Number($("d-premio").value);
-  const costo = Number($("d-costo").value || 0);
   const cierra = $("d-cierra").value ? new Date($("d-cierra").value).getTime() : null;
   const pago = $("d-pago").value;
   if (titulo.length < 3) { msg("Ponle un título (mínimo 3 letras)."); return; }
   if (pregunta.length < 3) { msg("Escribe la pregunta."); return; }
   if (opciones.length < 2 || opciones.length > 6) { msg("Pon entre 2 y 6 opciones, una por línea."); return; }
   if (!Number.isInteger(premio) || premio < 1 || premio > 1000) { msg("El premio debe ser un número entero entre 1 y 1000 monedas."); return; }
-  if (!Number.isInteger(costo) || costo < 0 || costo > 1000) { msg("El costo de entrada debe ser un número entero entre 0 y 1000 créditos."); return; }
-  if (!confirm((costo ? "Cada jugador pagará " + costo + (costo === 1 ? " crédito" : " créditos") + " para responder y " : "Cada jugador que responda ") + "recibirá " + premio + (premio === 1 ? " moneda" : " monedas") + (pago === "alcerrar" ? " cuando la dinámica se cierre (tú la cierras o llega su fecha de cierre)" : " al instante") + ". ¿Crear la dinámica?")) return;
+  if (!confirm("Cada jugador que responda recibirá " + premio + (premio === 1 ? " moneda" : " monedas") + (pago === "alcerrar" ? " cuando la dinámica se cierre (tú la cierras o llega su fecha de cierre)" : " al instante") + ". ¿Crear la dinámica?")) return;
   const b = $("d-crear"); b.disabled = true; msg("");
   try {
-    await llamar("adminDinamicaCrear", { titulo, pregunta, opciones, premio, costo, cierra, pago });
+    await llamar("adminDinamicaCrear", { titulo, pregunta, opciones, premio, cierra, pago });
     ["d-titulo", "d-pregunta", "d-opciones", "d-cierra"].forEach((i) => { $(i).value = ""; });
-    $("d-premio").value = "1"; $("d-costo").value = "0"; $("d-pago").value = "inmediato";
+    $("d-premio").value = "1"; $("d-pago").value = "inmediato";
     registroCargado = false;
     msg("Dinámica creada. Ya la ven los jugadores.", true);
     await cargarDinamicas();
@@ -1419,17 +1422,6 @@ function textoAccion(r) {
     case "torneo-premio": return "Marcó el pase de un torneo como entregado";
     case "dinamica-crear": return "Creó una dinámica con premio de " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas");
     case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
-    case "dinamica-gano": return "Ganó " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas") + " en la dinámica" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "dinamica-inscribir": return "Pagó " + num(r.monto) + (r.monto === 1 ? " crédito" : " créditos") + " de entrada a la dinámica" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "desafio-crear": return "Creó el evento" + (r.motivo ? " «" + r.motivo + "»" : "") + (r.monto ? " (premio " + num(r.monto) + ")" : "");
-    case "desafio-editar": return "Editó el evento" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "desafio-lanzar": return "Lanzó el evento" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "desafio-cerrar": return "Cerró el evento" + (r.motivo ? " «" + r.motivo + "»" : "") + " ahora mismo";
-    case "desafio-cancelar": return "Canceló el evento" + (r.motivo ? " «" + r.motivo + "»" : "") + " (se devolvieron las inscripciones)";
-    case "desafio-eliminar": return "Eliminó un borrador" + (r.motivo ? " («" + r.motivo + "»)" : "");
-    case "desafio-inscribir": return "Pagó " + num(r.monto) + (r.monto === 1 ? " crédito" : " créditos") + " de inscripción al evento" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "desafio-gano": return "Ganó " + num(r.monto) + (r.monto === 1 ? " crédito" : " créditos") + " en el evento" + (r.motivo ? " «" + r.motivo + "»" : "");
-    case "desafio-reembolso": return "Le devolvieron " + num(r.monto) + (r.monto === 1 ? " crédito" : " créditos") + " de inscripción al cancelarse" + (r.motivo ? " «" + r.motivo + "»" : "");
     default: return r.accion || "";
   }
 }
@@ -1442,10 +1434,7 @@ async function cargarRegistro() {
     const lista = r.registros || [];
     ul.innerHTML = lista.length ? lista.map((x) => {
       const c = cuentas.find((y) => y.uid === x.uid);
-      // Si el movimiento es de un jugador identificable, se muestra su nombre (así se ve quién ganó o perdió cada cosa);
-      // si no, se agrupa por el sistema que lo generó.
-      const cab = c ? (c.nombre || c.correo) : String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : String(x.accion || "").startsWith("dinamica-") ? "Dinámicas" : String(x.accion || "").startsWith("desafio-") ? "Eventos" : (x.uid || "");
-      return "<li><b>" + esc(cab) + "</b> — " + esc(textoAccion(x)) +
+      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : String(x.accion || "").startsWith("dinamica-") ? "Dinámicas" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
         "<small>" + esc(fecha(x.fecha)) + " · " + esc(x.admin) + (x.motivo ? " · " + esc(x.motivo) : "") + "</small></li>";
     }).join("") : '<li class="vacio">Todavía no hay acciones.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
