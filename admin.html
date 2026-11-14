@@ -115,6 +115,9 @@ label>*{margin-top:4px;font-weight:400}
 .acciones-c .btn{flex:1;padding:10px 8px}
 .reg li b+small,.reg li small+small{margin-top:2px}
 .dos{align-items:end}
+.tienda-fila{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
+.tienda-fila b{grid-column:1 / -1}
+.tienda-fila label{display:grid;gap:4px;color:var(--suave);font-size:.9rem}
 .cred-edit{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 0;color:var(--suave);font-size:.9rem}
 .cred-edit input{width:110px;text-align:center;font-size:1.1rem}
 .p-bat{margin:10px 0 0}
@@ -294,6 +297,13 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <h2>Solicitudes de créditos</h2>
         <p class="suave">Aprueba solo después de recibir el pago. Al aprobar se acreditan los créditos al jugador.</p>
         <ul class="reg" id="compras"></ul>
+      </div>
+      <div class="panel pad" style="margin-top:14px">
+        <h2>Precios de la tienda</h2>
+        <p class="suave">Lo que ve el jugador en <b>Tienda de monedas</b>. El precio es lo que paga (en pesos). Los cambios aplican a las compras nuevas.</p>
+        <div id="tienda-edit"></div>
+        <button type="button" class="btn primario" id="tienda-guardar">Guardar precios</button>
+        <p id="tienda-msg" class="msg" role="status"></p>
       </div>
     </section>
 
@@ -769,7 +779,7 @@ function irATab(nombre) {
   if (nombre === "torneos") cargarTorneos();
   if (nombre === "dinamicas") cargarDinamicas();
   if (nombre === "desafios") cargarDesafiosAdmin();
-  if (nombre === "compras") cargarCompras();
+  if (nombre === "compras") { cargarCompras(); cargarTienda(); }
   if (nombre === "retiros") { cargarRetiros(); cargarRetirosConfig(); }
   if (nombre === "registro") cargarRegistro();
   window.scrollTo({ top: 0 });
@@ -853,6 +863,29 @@ $("c-aplicar").onclick = async () => {
 };
 
 // ---------- Compras de créditos ----------
+let tiendaAdmin = {};
+async function cargarTienda() {
+  try {
+    tiendaAdmin = await llamar("tiendaPaquetes");
+    $("tienda-edit").innerHTML = Object.keys(tiendaAdmin).map((k) =>
+      '<div class="tienda-fila"><b>Paquete ' + (Object.keys(tiendaAdmin).indexOf(k) + 1) + '</b>' +
+      '<label>Créditos<input type="number" inputmode="numeric" min="1" max="1000" step="1" data-tp="' + k + '" data-campo="creditos" value="' + Number(tiendaAdmin[k].creditos) + '"></label>' +
+      '<label>Precio (COP)<input type="number" inputmode="numeric" min="100" step="50" data-tp="' + k + '" data-campo="precio" value="' + Number(tiendaAdmin[k].precio) + '"></label></div>').join("");
+  } catch (e) { $("tienda-edit").innerHTML = '<p class="msg">' + esc(msgErr(e)) + "</p>"; }
+}
+$("tienda-guardar").addEventListener("click", async () => {
+  const paquetes = {};
+  document.querySelectorAll("#tienda-edit [data-tp]").forEach((i) => { (paquetes[i.dataset.tp] = paquetes[i.dataset.tp] || {})[i.dataset.campo] = Number(i.value); });
+  const resumen = Object.keys(paquetes).map((k) => paquetes[k].creditos + " créditos = $" + num(paquetes[k].precio)).join("\n");
+  if (!confirm("¿Guardar estos precios de la tienda?\n\n" + resumen)) return;
+  const b = $("tienda-guardar"); b.disabled = true; $("tienda-msg").textContent = "";
+  try {
+    await llamar("adminTiendaGuardar", { paquetes });
+    $("tienda-msg").textContent = "Precios guardados. Los jugadores ya los ven."; $("tienda-msg").className = "msg ok";
+    await cargarTienda();
+  } catch (e) { $("tienda-msg").textContent = msgErr(e); $("tienda-msg").className = "msg"; }
+  b.disabled = false;
+});
 let comprasAdmin = [];
 const ESTADO_C = { pendiente: "Pendiente", procesando: "Acreditando…", aprobada: "Aprobada", rechazada: "Rechazada" };
 const cobro = (c) => (c.pesos != null ? "$" + num(c.pesos) + " COP" : "$" + c.usd + " USD");
