@@ -115,6 +115,13 @@ label>*{margin-top:4px;font-weight:400}
 .acciones-c .btn{flex:1;padding:10px 8px}
 .reg li b+small,.reg li small+small{margin-top:2px}
 .dos{align-items:end}
+.saldos2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.caja-saldo{padding:10px 12px;border-radius:12px;border:2px solid var(--linea);background:rgba(5,11,32,.6)}
+.caja-saldo small{display:block;color:var(--suave);font-size:.78rem;line-height:1.25}
+.caja-saldo b{display:block;font-family:"Lilita One",system-ui,sans-serif;font-weight:400;font-size:1.5rem;line-height:1.15;color:var(--oro)}
+.caja-saldo.ret{border-color:var(--ok)}
+.caja-saldo.ret b{color:var(--ok)}
+.caja-saldo.bon{border-color:var(--oro)}
 .mega-saldo .num-grande{font-size:2.3rem;margin:2px 0}
 .mega-saldo small{display:block;color:var(--suave)}
 .mas{color:var(--ok);font-weight:700}
@@ -188,7 +195,10 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <div class="stat"><small>Cuentas</small><div class="num-grande" id="s-total">0</div></div>
       <div class="stat"><small>Con tag de Clash</small><div class="num-grande" id="s-tag">0</div></div>
       <div class="stat"><small>Suspendidas</small><div class="num-grande" id="s-susp">0</div></div>
-      <div class="stat"><small>Créditos en juego</small><div class="num-grande" id="s-cred">0</div></div>
+    </div>
+    <div class="stats">
+      <div class="stat caja-saldo ret"><small>1 · Créditos retirables</small><div class="num-grande" id="s-cred">0</div></div>
+      <div class="stat caja-saldo bon"><small>2 · Créditos en bonos</small><div class="num-grande" id="s-bonos">0</div></div>
     </div>
 
     <div class="tabs" role="tablist">
@@ -246,8 +256,8 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           <div class="dos">
             <label>Tipo de saldo
               <select id="c-tipo">
-                <option value="recargado">Créditos recargados (se pueden retirar)</option>
-                <option value="bono">Bonos (se juegan, no se retiran)</option>
+                <option value="bono">2 · Créditos en bonos (regalos del admin: se juegan, no se retiran)</option>
+                <option value="recargado">1 · Créditos retirables (solo para corregir recargas o ganancias)</option>
               </select>
             </label>
             <label>Acción
@@ -389,13 +399,17 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
             <input id="t-clave" maxlength="30" autocomplete="off">
           </label>
         </div>
-        <div class="dos" style="margin-top:10px">
-          <label>Cupos (máx. 1000)
-            <input id="t-cupos" type="number" inputmode="numeric" min="2" max="1000" step="1" placeholder="1000">
-          </label>
-          <label>Premio
-            <input id="t-premio" maxlength="60" value="Pass Royale">
-          </label>
+        <label style="margin-top:10px">Cupos (máx. 1000)
+          <input id="t-cupos" type="number" inputmode="numeric" min="2" max="1000" step="1" placeholder="1000">
+        </label>
+        <div style="margin-top:10px">
+          <b>Premios por puesto</b>
+          <p class="suave" style="margin:4px 0 8px">Escribe el premio de cada puesto. Agrega tantos puestos como quieras premiar (hasta 50): el 1.º, el 2.º, el 3.º…</p>
+          <div id="t-premios"></div>
+          <div class="acciones-c">
+            <button type="button" class="btn" id="t-add-puesto">+ Agregar puesto</button>
+            <button type="button" class="btn" id="t-del-puesto">− Quitar el último</button>
+          </div>
         </div>
         <label>Reglas o descripción (opcional)
           <textarea id="t-desc" rows="3" maxlength="400" style="resize:vertical" placeholder="Ej. Eliminación directa, mejor de 3"></textarea>
@@ -599,6 +613,7 @@ function pintarStats() {
   $("s-tag").textContent = num(cuentas.filter((c) => c.tag).length);
   $("s-susp").textContent = num(cuentas.filter((c) => c.suspendido).length);
   $("s-cred").textContent = num(cuentas.reduce((t, c) => t + (c.creditos || 0), 0));
+  $("s-bonos").textContent = num(cuentas.reduce((t, c) => t + (c.bonos || 0), 0));
 }
 
 // ---------- Avisos ----------
@@ -648,6 +663,12 @@ function bloqueApuestas(c) {
     (ult ? '<details class="ap-det"><summary>Últimas apuestas</summary><ul style="list-style:none;margin:6px 0 0;padding:0">' + ult + '</ul></details>' : "");
 }
 
+function cajasSaldo(c) {
+  return '<div class="saldos2">' +
+    '<div class="caja-saldo ret"><small>1 · Créditos retirables<br>(recargas y apuestas ganadas)</small><b>' + num(c.creditos || 0) + '</b></div>' +
+    '<div class="caja-saldo bon"><small>2 · Créditos en bonos<br>(del admin, eventos y dinámicas)</small><b>' + num(c.bonos || 0) + '</b></div></div>';
+}
+
 function tarjeta(c) {
   const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v || "—") + "</dd>";
   const enlace = c.enlace
@@ -656,7 +677,8 @@ function tarjeta(c) {
   return '<li class="perfil">' +
     '<div class="p-cab"><span class="avatar">' + esc(inicial(c)) + '</span>' +
     '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small></span>' +
-    '<span class="der"><span class="cred">' + num(c.creditos) + '</span>' + (c.bonos ? '<small> +' + num(c.bonos) + ' bonos</small>' : '') + pills(c) + '</span></div>' +
+    '<span class="der">' + pills(c) + '</span></div>' +
+    cajasSaldo(c) +
     '<dl class="p-datos">' +
       fila("Teléfono", c.telefono) + fila("Tag", c.tag) + "<dt>Enlace de amigo</dt><dd>" + enlace + "</dd>" +
       fila("Victorias", num(c.victorias)) + fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid) +
@@ -750,7 +772,7 @@ $("c-resultados").addEventListener("click", (e) => {
 function seleccionar(uid) {
   seleccionada = uid;
   $("c-buscar").value = ""; pintarResultados();
-  $("c-monto").value = ""; $("c-motivo").value = ""; $("c-modo").value = "sumar";
+  $("c-monto").value = ""; $("c-motivo").value = ""; $("c-modo").value = "sumar"; $("c-tipo").value = "bono";
   $("c-msg").textContent = ""; $("c-msg").className = "msg";
   actualizarBoton();
   pintarSeleccion();
@@ -766,7 +788,8 @@ function pintarSeleccion() {
   if (!c) return;
   $("c-sel").innerHTML = '<div class="sel-fila"><span class="avatar">' + esc(inicial(c)) + '</span>' +
     '<span class="info"><b>' + esc(c.nombre || c.correo || "Sin nombre") + '</b><small>' + esc(c.correo) + '</small><small>' + esc(c.tag || "Sin tag") + '</small></span></div>' +
-    '<div class="sel-pie"><div><small style="color:var(--suave)">Saldo actual</small><div class="saldo">' + num(c.creditos) + '</div><small style="color:var(--suave)">Bonos: ' + num(c.bonos || 0) + '</small>' + pills(c) + '</div>' +
+    cajasSaldo(c) +
+    '<div class="sel-pie"><div>' + pills(c) + '</div>' +
     '<button type="button" class="btn" id="c-cambiar">Cambiar cuenta</button></div>';
   $("c-cambiar").onclick = () => { seleccionada = null; $("c-msg").textContent = ""; pintarSeleccion(); $("c-buscar").focus(); };
 }
@@ -1072,9 +1095,13 @@ function tarjetaTorneo(t) {
   const id = esc(t.id);
   const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v) + "</dd>";
   const nombreDe = (i) => i.nombre || i.correo || i.uid;
+  const premios = t.premios && t.premios.length ? t.premios : [t.premio || "Pass Royale"];
+  const gs = Array.isArray(t.ganadores) && t.ganadores.length ? t.ganadores : (gan ? [Object.assign({ puesto: 1, premio: t.premio || "Pass Royale" }, gan)] : []);
+  const entregado = (p) => !!(t.entregados && t.entregados[p]) || (p === 1 && !!t.premioEntregado);
+  const reclamado = (g) => !!(t.reclamados && t.reclamados[g.uid]) || (g.puesto === 1 && !!t.premioReclamado);
   const filas = ins.length
     ? ins.map((i) => "<li><b>" + esc(nombreDe(i)) + "</b>" +
-        (gan && gan.uid === i.uid ? ' <span class="pill ok">Ganador</span>' : "") +
+        (gs.find((g) => g.uid === i.uid) ? ' <span class="pill ok">' + (gs.length > 1 ? gs.find((g) => g.uid === i.uid).puesto + ".º puesto" : "Ganador") + "</span>" : "") +
         "<small>" + ([i.tag, i.telefono, i.correo].filter(Boolean).map(esc).join(" · ") || "—") + "</small></li>").join("")
     : '<li class="vacio">Todavía no hay inscritos.</li>';
 
@@ -1104,8 +1131,9 @@ function tarjetaTorneo(t) {
         '</select><button type="button" class="btn primario" data-t="ganador" data-id="' + id + '">Declarar ganador</button></div>'
       : '<p class="suave" style="margin:12px 0 0">Nadie se inscribió, no hay a quién declarar ganador.</p>') +
       '<div class="acciones-c"><button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar torneo</button></div>';
-  } else if (t.estado === "finalizado" && !t.premioEntregado) {
-    acc = botonTabla + '<div class="acciones-c"><button type="button" class="btn primario" data-t="premio" data-id="' + id + '">Marcar pase entregado</button></div>';
+  } else if (t.estado === "finalizado" && gs.some((g) => !entregado(g.puesto))) {
+    acc = botonTabla + '<div class="acciones-c">' + gs.filter((g) => !entregado(g.puesto)).map((g) =>
+      '<button type="button" class="btn primario" data-t="premio" data-puesto="' + g.puesto + '" data-id="' + id + '">Marcar entregado' + (gs.length > 1 ? " · " + g.puesto + ".º puesto" : "") + "</button>").join("") + "</div>";
   } else if (t.estado === "finalizado") {
     acc = botonTabla;
   }
@@ -1114,11 +1142,13 @@ function tarjetaTorneo(t) {
     '<div class="p-cab"><span class="info"><b>' + esc(t.nombre) + '</b></span>' +
     '<span class="der"><span class="pill' + claseT(t.estado) + '">' + esc(ESTADO_T[t.estado] || t.estado) + '</span></span></div>' +
     '<dl class="p-datos">' +
-      fila("Premio", t.premio || "Pass Royale") +
+      (premios.length > 1 ? premios.map((p, i) => fila((i + 1) + ".º puesto", p)).join("") : fila("Premio", premios[0])) +
       fila("Código del juego", t.tagJuego || "Sin publicar") +
       fila("Inscritos", ins.length + " de " + Math.min(t.cupos || 1000, 1000)) +
-      (gan ? fila("Ganador", (gan.nombre || gan.uid) + (gan.tag ? " · " + gan.tag : "")) : "") +
-      (t.estado === "finalizado" ? fila("Pase", t.premioEntregado ? "Entregado ✓" : t.premioReclamado ? "Reclamado · por entregar" : "Aún sin reclamar") : "") +
+      (gs.length > 1
+        ? gs.map((g) => fila("Ganó el " + g.puesto + ".º puesto", (g.nombre || g.uid) + (g.tag ? " · " + g.tag : "") + " — " + (g.premio || "") + " · " + (entregado(g.puesto) ? "Entregado ✓" : reclamado(g) ? "Reclamado · por entregar" : "Aún sin reclamar"))).join("")
+        : (gan ? fila("Ganador", (gan.nombre || gan.uid) + (gan.tag ? " · " + gan.tag : "")) : "") +
+          (t.estado === "finalizado" ? fila("Pase", t.premioEntregado ? "Entregado ✓" : t.premioReclamado ? "Reclamado · por entregar" : "Aún sin reclamar") : "")) +
     '</dl>' +
     (t.descripcion ? '<p class="torneo-desc">' + esc(t.descripcion) + '</p>' : "") +
     '<details class="inscritos" data-id="' + id + '"' + (abiertosT.has(t.id) ? " open" : "") + '><summary>Ver inscritos (' + ins.length + ')</summary>' +
@@ -1143,10 +1173,35 @@ $("torneos").addEventListener("toggle", (e) => {
   if (d.open) abiertosT.add(d.dataset.id); else abiertosT.delete(d.dataset.id);
 }, true);
 
+// ---------- Premios por puesto (formulario de torneo) ----------
+function pintarPremiosForm(valores) {
+  const caja = $("t-premios"); caja.innerHTML = "";
+  valores.forEach((v, i) => {
+    const lab = document.createElement("label");
+    lab.style.marginTop = "6px";
+    lab.append((i + 1) + ".º puesto");
+    const inp = document.createElement("input");
+    inp.maxLength = 60; inp.value = v; inp.placeholder = i === 0 ? "Ej. Pass Royale" : "Ej. 500 gemas";
+    lab.appendChild(inp); caja.appendChild(lab);
+  });
+}
+pintarPremiosForm(["Pass Royale"]);
+$("t-add-puesto").onclick = () => {
+  const act = Array.from($("t-premios").querySelectorAll("input")).map((i) => i.value);
+  if (act.length >= 50) { aviso("Máximo 50 puestos con premio."); return; }
+  act.push(act.length ? act[act.length - 1] : "");   // empieza igual que el puesto anterior; lo editas si es distinto
+  pintarPremiosForm(act);
+};
+$("t-del-puesto").onclick = () => {
+  const act = Array.from($("t-premios").querySelectorAll("input")).map((i) => i.value);
+  if (act.length > 1) { act.pop(); pintarPremiosForm(act); }
+};
+
 $("t-crear").onclick = async () => {
   const msg = (t, ok) => { $("t-msg").textContent = t; $("t-msg").className = "msg" + (ok ? " ok" : ""); };
   const nombre = $("t-nombre").value.trim();
-  const premio = $("t-premio").value.trim() || "Pass Royale";
+  const premios = Array.from($("t-premios").querySelectorAll("input")).map((i) => i.value.trim());
+  if (premios.some((p) => !p)) { msg("Escribe el premio de cada puesto o quita los que sobren."); return; }
   const descripcion = $("t-desc").value.trim();
   const tag = $("t-tag").value.trim();
   const clave = $("t-clave").value.trim();
@@ -1156,8 +1211,8 @@ $("t-crear").onclick = async () => {
   if (cupos !== null && (!Number.isInteger(cupos) || cupos < 2 || cupos > 1000)) { msg("Los cupos deben ser un número entero entre 2 y 1000, o déjalo vacío (1000)."); return; }
   const b = $("t-crear"); b.disabled = true; msg("");
   try {
-    const r = await llamar("adminTorneoCrear", { nombre, premio, descripcion, cupos, tag, clave });
-    $("t-nombre").value = ""; $("t-tag").value = ""; $("t-clave").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; $("t-premio").value = "Pass Royale";
+    const r = await llamar("adminTorneoCrear", { nombre, premios, descripcion, cupos, tag, clave });
+    $("t-nombre").value = ""; $("t-tag").value = ""; $("t-clave").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; pintarPremiosForm(["Pass Royale"]);
     registroCargado = false;
     msg("Torneo creado y verificado en Clash Royale" + (r && r.nombreJuego ? ": " + r.nombreJuego : "") + ".", true);
     await cargarTorneos();
@@ -1211,9 +1266,11 @@ $("torneos").addEventListener("click", async (ev) => {
     pregunta = "¿Declarar a " + (g.nombre || g.correo || g.uid) + " como ganador de «" + t.nombre + "»?\nEl torneo queda finalizado.";
     listo = "Ganador declarado.";
   } else if (acc === "premio") {
-    fn = "adminTorneoPremio"; datos = { id: t.id };
-    pregunta = "¿Ya entregaste el " + (t.premio || "Pass Royale") + " a " + ((t.ganador && (t.ganador.nombre || t.ganador.uid)) || "el ganador") + "?";
-    listo = "Pase marcado como entregado.";
+    const puesto = Number(b.dataset.puesto) || 1;
+    const g = (Array.isArray(t.ganadores) ? t.ganadores : []).find((x) => x.puesto === puesto) || t.ganador || {};
+    fn = "adminTorneoPremio"; datos = { id: t.id, puesto };
+    pregunta = "¿Ya entregaste el " + (g.premio || t.premio || "Pass Royale") + " a " + (g.nombre || g.uid || "el ganador") + (Array.isArray(t.ganadores) && t.ganadores.length > 1 ? " (" + puesto + ".º puesto)" : "") + "?";
+    listo = "Premio marcado como entregado.";
   } else return;
   if (!confirm(pregunta)) return;
   b.disabled = true;
