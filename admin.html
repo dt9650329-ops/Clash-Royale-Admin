@@ -1394,7 +1394,7 @@ async function cargarDesafiosAdmin() {
         (d.cierra ? "<small>Cierra: " + esc(new Date(d.cierra).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small>" : "") +
         (d.ganadores.length ? "<small>Ganaron: <b>" + esc(d.ganadores.join(", ")) + "</b></small>" : "") +
         (d.inscritosLista.length ? "<details><summary>Ver inscritos (" + d.inscritosLista.length + ")</summary><ul class=\"reg\">" + d.inscritosLista.map((x) => {
-          const est = x.estado === "gano" ? "🏆 Ganó" : x.estado === "sin_cupo" ? "Llegó tarde (tope lleno)" : (d.estado === "abierto" ? "En juego" : "No cumplió");
+          const est = x.estado === "gano" ? "🏆 Ganó" : x.estado === "sin_cupo" ? "Llegó tarde (tope lleno)" : x.estado === "perdio" ? "❌ Perdió (puede volver a inscribirse)" : (d.estado === "abierto" ? "En juego" : "No cumplió");
           return "<li><b>" + esc(x.nombre) + "</b> · #" + esc(x.tag) + "<small>" + est + " · racha " + x.racha + " (mejor " + x.mejor + ") · se inscribió " + esc(new Date(x.desde).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })) + "</small></li>";
         }).join("") + "</ul></details>" : "") +
         '<span class="pill' + (d.estado === "abierto" ? " adm" : "") + '">' + esc(ESTADO_DS[d.estado] || d.estado) + "</span>" +
