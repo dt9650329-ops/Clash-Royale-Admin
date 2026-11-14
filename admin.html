@@ -644,7 +644,7 @@ function aviso(texto, ok) {
 }
 const inicial = (c) => (c.nombre || c.correo || "?").trim().charAt(0).toUpperCase();
 const pills = (c) => (c.esAdmin ? '<span class="pill adm">Admin</span> ' : "") +
-  (c.suspendido ? '<span class="pill mal">Suspendida</span> ' : "") + (!c.registrado ? '<span class="pill">Sin registro</span>' : "");
+  (c.suspendido ? '<span class="pill mal">Suspendida</span> ' : "") + (c.referidos ? '<span class="pill ok">Referidos · ' + num(c.nReferidos || 0) + "</span> " : "") + (!c.registrado ? '<span class="pill">Sin registro</span>' : "");
 
 // ---------- Perfiles ----------
 const FILTROS = {
@@ -714,6 +714,7 @@ function tarjeta(c) {
     '<div class="p-bat" data-bat="' + esc(c.uid) + '">' + (batallasAbiertas[c.uid] || "") + '</div>' +
     '<div class="p-acc">' +
       '<button type="button" class="btn" data-acc="batallas" data-uid="' + esc(c.uid) + '">Últimas 5 batallas</button>' +
+      '<button type="button" class="btn" data-acc="referidos" data-uid="' + esc(c.uid) + '">' + (c.referidos ? "Quitar referidos" : "Permitir referidos") + '</button>' +
       '<button type="button" class="btn primario" data-acc="creditos" data-uid="' + esc(c.uid) + '">Cargar créditos</button>' +
       '<button type="button" class="btn' + (c.suspendido ? "" : " peligro") + '" data-acc="estado" data-uid="' + esc(c.uid) + '"' + (c.esAdmin ? " disabled" : "") + '>' + (c.suspendido ? "Reactivar" : "Suspender") + '</button>' +
     '</div></li>';
@@ -742,8 +743,21 @@ $("lista").addEventListener("click", (e) => {
   const c = cuentas.find((x) => x.uid === b.dataset.uid); if (!c) return;
   if (b.dataset.acc === "creditos") irACreditos(c.uid);
   else if (b.dataset.acc === "batallas") verBatallas(c, b);
+  else if (b.dataset.acc === "referidos") cambiarReferidos(c, b);
   else cambiarEstado(c, b);
 });
+
+async function cambiarReferidos(c, boton) {
+  const quien = c.nombre || c.correo || c.uid, activar = !c.referidos;
+  if (!confirm(activar ? "¿Permitir que " + quien + " agregue referidos?\nTendrá un enlace en su perfil para compartir y verá la lista de quienes se registren con él." : "¿Quitar los referidos a " + quien + "?\nSu enlace dejará de registrar nuevos referidos (los que ya tiene se conservan).")) return;
+  boton.disabled = true;
+  try {
+    await llamar("adminReferidos", { uid: c.uid, activo: activar });
+    aviso(activar ? "Referidos activados para " + quien + "." : "Referidos quitados a " + quien + ".", true);
+    registroCargado = false;
+    await cargar();
+  } catch (e) { aviso(msgErr(e)); boton.disabled = false; }
+}
 
 async function verBatallas(c, boton) {
   const panel = boton.closest(".perfil").querySelector(".p-bat");
@@ -1564,6 +1578,8 @@ function textoAccion(r) {
     case "torneo-premio": return "Marcó el pase de un torneo como entregado";
     case "dinamica-crear": return "Creó una dinámica con premio de " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas");
     case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
+    case "referidos-activar": return "Activó los referidos para este perfil";
+    case "referidos-quitar": return "Quitó los referidos a este perfil";
     case "todo-a-bonos": return "Pasó " + num(r.monto) + " créditos a bonos (" + (r.motivo || "") + ")";
     default: return r.accion || "";
   }
