@@ -115,6 +115,12 @@ label>*{margin-top:4px;font-weight:400}
 .acciones-c .btn{flex:1;padding:10px 8px}
 .reg li b+small,.reg li small+small{margin-top:2px}
 .dos{align-items:end}
+.p-bat{margin:10px 0 0}
+.p-bat ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.p-bat li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(5,11,32,.6);border:1px solid var(--linea);font-size:.9rem}
+.p-bat li small{display:block;color:var(--suave)}
+.p-bat .gano{color:var(--ok);font-weight:700}
+.p-bat .perdio{color:#ff6b6b;font-weight:700}
 .saldos2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .caja-saldo{padding:10px 12px;border-radius:12px;border:2px solid var(--linea);background:rgba(5,11,32,.6)}
 .caja-saldo small{display:block;color:var(--suave);font-size:.78rem;line-height:1.25}
@@ -670,6 +676,15 @@ function cajasSaldo(c) {
     '<div class="caja-saldo bon"><small>2 · Créditos en bonos<br>(del admin, eventos y dinámicas)</small><b>' + num(c.bonos || 0) + '</b></div></div>';
 }
 
+const batallasAbiertas = {};   // uid -> html ya cargado (se conserva si la lista se vuelve a pintar)
+function htmlBatallas(r) {
+  if (!r.batallas.length) return "<small style=\"color:var(--suave)\">Todavía no tiene batallas registradas.</small>";
+  return "<ul>" + r.batallas.map((b) =>
+    "<li><span><b>vs " + esc(b.rival) + "</b><small>" + fecha(b.fecha) + " · coronas " + esc(b.coronas) + "</small></span>" +
+    "<span class=\"" + (b.gano ? "gano" : "perdio") + "\">" + (b.gano ? "Ganó" : "Perdió") + "</span></li>").join("") + "</ul>" +
+    (r.total > 5 ? "<small style=\"color:var(--suave)\">Mostrando 5 de " + num(r.total) + " batallas</small>" : "");
+}
+
 function tarjeta(c) {
   const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v || "—") + "</dd>";
   const enlace = c.enlace
@@ -684,7 +699,9 @@ function tarjeta(c) {
       fila("Teléfono", c.telefono) + fila("Tag", c.tag) + "<dt>Enlace de amigo</dt><dd>" + enlace + "</dd>" +
       fila("Victorias", num(c.victorias)) + fila("Creada", fecha(c.creadoEn)) + fila("Último ingreso", fecha(c.ultimoIngreso)) + fila("UID", c.uid) +
     '</dl>' + bloqueApuestas(c) +
+    '<div class="p-bat" data-bat="' + esc(c.uid) + '">' + (batallasAbiertas[c.uid] || "") + '</div>' +
     '<div class="p-acc">' +
+      '<button type="button" class="btn" data-acc="batallas" data-uid="' + esc(c.uid) + '">Últimas 5 batallas</button>' +
       '<button type="button" class="btn primario" data-acc="creditos" data-uid="' + esc(c.uid) + '">Cargar créditos</button>' +
       '<button type="button" class="btn' + (c.suspendido ? "" : " peligro") + '" data-acc="estado" data-uid="' + esc(c.uid) + '"' + (c.esAdmin ? " disabled" : "") + '>' + (c.suspendido ? "Reactivar" : "Suspender") + '</button>' +
     '</div></li>';
@@ -712,8 +729,21 @@ $("lista").addEventListener("click", (e) => {
   const b = e.target.closest("[data-acc]"); if (!b) return;
   const c = cuentas.find((x) => x.uid === b.dataset.uid); if (!c) return;
   if (b.dataset.acc === "creditos") irACreditos(c.uid);
+  else if (b.dataset.acc === "batallas") verBatallas(c, b);
   else cambiarEstado(c, b);
 });
+
+async function verBatallas(c, boton) {
+  const panel = boton.closest(".perfil").querySelector(".p-bat");
+  if (batallasAbiertas[c.uid]) { delete batallasAbiertas[c.uid]; panel.innerHTML = ""; return; }   // segundo clic: ocultar
+  boton.disabled = true; panel.innerHTML = "<small style=\"color:var(--suave)\">Cargando…</small>";
+  try {
+    const r = await llamar("adminBatallas", { uid: c.uid });
+    batallasAbiertas[c.uid] = htmlBatallas(r);
+    panel.innerHTML = batallasAbiertas[c.uid];
+  } catch (e) { panel.innerHTML = "<small style=\"color:#ff6b6b\">" + esc(msgErr(e)) + "</small>"; }
+  boton.disabled = false;
+}
 
 async function cambiarEstado(c, boton) {
   const suspender = !c.suspendido;
