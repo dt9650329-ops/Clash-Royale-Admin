@@ -115,6 +115,8 @@ label>*{margin-top:4px;font-weight:400}
 .acciones-c .btn{flex:1;padding:10px 8px}
 .reg li b+small,.reg li small+small{margin-top:2px}
 .dos{align-items:end}
+.cred-edit{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 0;color:var(--suave);font-size:.9rem}
+.cred-edit input{width:110px;text-align:center;font-size:1.1rem}
 .p-bat{margin:10px 0 0}
 .p-bat ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .p-bat li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(5,11,32,.6);border:1px solid var(--linea);font-size:.9rem}
@@ -869,7 +871,8 @@ async function cargarCompras() {
       "<small>" + contacto(c) + "</small>" +
       '<span class="pill' + clasePill(c.estado) + '">' + esc(ESTADO_C[c.estado] || c.estado) + "</span>" +
       (c.estado === "pendiente"
-        ? '<div class="acciones-c"><button type="button" class="btn primario" data-c="aprobar" data-id="' + esc(c.id) + '">Aprobar y acreditar</button>' +
+        ? '<label class="cred-edit">Créditos a acreditar <input type="number" inputmode="numeric" min="1" max="1000" step="1" value="' + Number(c.creditos) + '" data-cr="' + esc(c.id) + '"></label>' +
+          '<div class="acciones-c"><button type="button" class="btn primario" data-c="aprobar" data-id="' + esc(c.id) + '">Aprobar y acreditar</button>' +
           '<button type="button" class="btn peligro" data-c="rechazar" data-id="' + esc(c.id) + '">Rechazar</button></div>'
         : "") + "</li>").join("") : '<li class="vacio">Todavía no hay solicitudes de compra.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
@@ -879,10 +882,14 @@ $("compras").addEventListener("click", async (ev) => {
   const c = comprasAdmin.find((x) => x.id === b.dataset.id); if (!c) return;
   const aprobar = b.dataset.c === "aprobar";
   const quien = c.nombre || c.correo;
-  if (!confirm(aprobar ? "¿Ya recibiste el pago de " + cobro(c) + " de " + quien + "?\nSe le acreditarán " + c.creditos + " créditos." : "¿Rechazar la solicitud de " + quien + "?")) return;
+  const campo = b.closest("li").querySelector("[data-cr]");
+  const creditos = campo ? Number(campo.value) : c.creditos;
+  if (aprobar && (!Number.isInteger(creditos) || creditos < 1 || creditos > 1000)) { aviso("Escribe cuántos créditos acreditar (un número entero entre 1 y 1000)."); return; }
+  const cambio = aprobar && creditos !== c.creditos ? "\n⚠️ Pidió " + c.creditos + " y vas a acreditar " + creditos + "." : "";
+  if (!confirm(aprobar ? "¿Ya recibiste el pago de " + cobro(c) + " de " + quien + "?\nSe le acreditarán " + creditos + " créditos." + cambio : "¿Rechazar la solicitud de " + quien + "?")) return;
   b.disabled = true;
   try {
-    await llamar("adminResolverCompra", { id: c.id, aprobar });
+    await llamar("adminResolverCompra", aprobar ? { id: c.id, aprobar, creditos } : { id: c.id, aprobar });
     registroCargado = false;
     aviso(aprobar ? "Compra aprobada y créditos acreditados." : "Solicitud rechazada.", true);
     await cargar();
