@@ -539,11 +539,14 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
     <section id="t-clan" class="oculto">
       <div class="panel pad">
         <h2>Clan Legión Real</h2>
-        <p class="suave">Los jugadores piden entrar a esta sección desde su perfil. Aquí los aceptas o los expulsas. Quien está aceptado ve los mazos de los mejores del juego.</p>
-        <button type="button" class="btn ancho" id="clan-mazos-act">Actualizar mazos ahora</button>
+        <p class="suave">Los jugadores piden entrar a esta sección desde su perfil. Aquí los aceptas o los expulsas. Quien está aceptado ve los miembros del clan y los mazos de los mejores del juego.</p>
+        <button type="button" class="btn ancho" id="clan-mazos-act">Actualizar mazos y miembros ahora</button>
         <p id="clan-msg" class="msg" role="status"></p>
       </div>
-      <h2 style="margin:16px 0 10px">Solicitudes y miembros</h2>
+      <h2 style="margin:16px 0 10px">Miembros del clan</h2>
+      <div class="panel pad" id="clan-resumen-adm"></div>
+      <ul class="lista" id="clan-miembros-adm" style="margin-top:10px"></ul>
+      <h2 style="margin:16px 0 10px">Solicitudes de acceso</h2>
       <ul class="lista" id="clan-lista"></ul>
     </section>
 
@@ -1599,8 +1602,42 @@ function tarjetaClan(s) {
     '<small style="display:block;color:var(--suave)">' + esc(s.tag || "") + (s.pedidoEn ? " · pidió " + esc(fecha(s.pedidoEn)) : "") + (s.resueltoEn ? " · resuelto " + esc(fecha(s.resueltoEn)) : "") + "</small>" +
     '<div class="acciones-c">' + botones + "</div></li>";
 }
+// ---------- Clan Legión Real: quién es quién dentro del clan ----------
+const ORDEN_ROL = { "Líder": 0, "Colíder": 1, "Veterano": 2, "Miembro": 3 };
+function haceClan(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 1) return "ahora mismo";
+  if (m < 60) return "hace " + m + " min";
+  const h = Math.round(m / 60);
+  if (h < 24) return "hace " + h + (h === 1 ? " hora" : " horas");
+  const d = Math.round(h / 24);
+  return "hace " + d + (d === 1 ? " día" : " días");
+}
+function tarjetaMiembroClan(m) {
+  const clase = m.rol === "Líder" ? " adm" : m.rol === "Colíder" ? " ok" : "";
+  const partidas = m.ganadas == null ? "" : " · últimas partidas: " + m.ganadas + " ganadas / " + m.perdidas + " perdidas";
+  return '<li class="perfil"><b>' + esc(m.nombre) + "</b> " + '<span class="pill' + clase + '">' + esc(m.rol) + "</span>" +
+    '<small style="display:block;color:var(--suave)">' + esc(m.tag) + " · nivel " + num(m.nivel) + " · " + num(m.trofeos) + " trofeos</small>" +
+    '<small style="display:block;color:var(--suave)">Donó ' + num(m.donadas) + " · recibió " + num(m.recibidas) + partidas + "</small>" +
+    '<small style="display:block;color:var(--suave)">Guerra esta semana: ' + num(m.guerraMazos) + " mazos" + (m.visto ? " · visto " + esc(haceClan(m.visto)) : "") + "</small></li>";
+}
+async function cargarMiembrosClanAdmin() {
+  const ul = $("clan-miembros-adm"), res = $("clan-resumen-adm");
+  res.innerHTML = '<span class="suave">Cargando miembros del clan…</span>';
+  try {
+    const r = await llamar("adminClanMiembros");
+    const lista = (r.miembros || []).slice().sort((x, y) => (ORDEN_ROL[x.rol] ?? 9) - (ORDEN_ROL[y.rol] ?? 9) || y.donadas - x.donadas);
+    const c = r.clan || {};
+    const cuenta = (rol) => lista.filter((m) => m.rol === rol).length;
+    res.innerHTML = "<b>" + esc(c.nombre || "Clan") + "</b> " + esc(c.tag || "") +
+      '<small style="display:block;color:var(--suave)">' + num(c.miembros || lista.length) + " miembros · " + cuenta("Líder") + " líder · " + cuenta("Colíder") + " colíderes · " + cuenta("Veterano") + " veteranos · " + num(c.donacionesSemana || 0) + " donaciones por semana · " + num(c.puntos || 0) + " puntos" +
+      (r.actualizado ? " · actualizado " + esc(haceClan(r.actualizado)) : "") + "</small>";
+    ul.innerHTML = lista.length ? lista.map(tarjetaMiembroClan).join("") : '<li class="vacio">No hay datos del clan todavía.</li>';
+  } catch (e) { res.innerHTML = ""; ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
 async function cargarClan() {
   const ul = $("clan-lista");
+  cargarMiembrosClanAdmin();
   try {
     const r = await llamar("adminClanSolicitudes");
     clanAdmin = r.solicitudes || [];
@@ -1628,11 +1665,12 @@ $("clan-lista").addEventListener("click", async (ev) => {
 });
 $("clan-mazos-act").onclick = async () => {
   const b = $("clan-mazos-act"), msg = (t, ok) => { $("clan-msg").textContent = t; $("clan-msg").className = "msg" + (ok ? " ok" : ""); };
-  b.disabled = true; msg("Trayendo los mazos de los mejores… puede tardar unos segundos.", true);
+  b.disabled = true; msg("Trayendo los miembros y los mazos… puede tardar unos segundos.", true);
   try {
     const r = await llamar("adminClanMazosActualizar");
     registroCargado = false;
     msg("Listo: " + num(r.mazos) + (r.mazos === 1 ? " mazo actualizado." : " mazos actualizados."), true);
+    cargarMiembrosClanAdmin();
   } catch (e) { msg(msgErr(e)); }
   b.disabled = false;
 };
