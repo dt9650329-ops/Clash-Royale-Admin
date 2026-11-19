@@ -222,6 +222,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <button type="button" class="tab" data-tab="torneos" role="tab">Torneos<span id="n-torneos"></span></button>
       <button type="button" class="tab" data-tab="dinamicas" role="tab">Dinámicas</button>
       <button type="button" class="tab" data-tab="desafios" role="tab">Eventos</button>
+      <button type="button" class="tab" data-tab="clan" role="tab">Clan Legión Real<span id="n-clan"></span></button>
       <button type="button" class="tab" data-tab="registro" role="tab">Registro</button>
       <button type="button" class="tab" data-tab="seguridad" role="tab">Seguridad</button>
     </div>
@@ -535,6 +536,17 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
       <ul class="lista" id="dinamicas"></ul>
     </section>
 
+    <section id="t-clan" class="oculto">
+      <div class="panel pad">
+        <h2>Clan Legión Real</h2>
+        <p class="suave">Los jugadores piden entrar a esta sección desde su perfil. Aquí los aceptas o los expulsas. Quien está aceptado ve los mazos de los mejores del juego.</p>
+        <button type="button" class="btn ancho" id="clan-mazos-act">Actualizar mazos ahora</button>
+        <p id="clan-msg" class="msg" role="status"></p>
+      </div>
+      <h2 style="margin:16px 0 10px">Solicitudes y miembros</h2>
+      <ul class="lista" id="clan-lista"></ul>
+    </section>
+
     <section id="t-registro" class="oculto">
       <div class="panel pad">
         <h2>Últimas acciones</h2>
@@ -624,6 +636,7 @@ async function cargar() {
   cargarCompras();
   cargarRetiros();
   cargarTorneos();
+  cargarClan();
   if (registroCargado) cargarRegistro();
 }
 $("btn-refrescar").onclick = async () => {
@@ -792,11 +805,12 @@ async function cambiarEstado(c, boton) {
 // ---------- Pestañas ----------
 function irATab(nombre) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("activa", x.dataset.tab === nombre));
-  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "dinamicas", "desafios", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
+  ["perfiles", "creditos", "compras", "retiros", "apuestas", "mega", "torneos", "dinamicas", "desafios", "clan", "registro", "seguridad"].forEach((t) => $("t-" + t).classList.toggle("oculto", t !== nombre));
   if (nombre === "mega") cargarMega();
   if (nombre === "apuestas") cargarApuestas();
   if (nombre === "torneos") cargarTorneos();
   if (nombre === "dinamicas") cargarDinamicas();
+  if (nombre === "clan") cargarClan();
   if (nombre === "desafios") cargarDesafiosAdmin();
   if (nombre === "compras") { cargarCompras(); cargarTienda(); }
   if (nombre === "retiros") { cargarRetiros(); cargarRetirosConfig(); }
@@ -1571,6 +1585,58 @@ $("dinamicas").addEventListener("click", async (ev) => {
   } catch (e) { aviso(msgErr(e)); b.disabled = false; }
 });
 
+// ---------- Clan Legión Real: aceptar y expulsar ----------
+let clanAdmin = [];
+const ESTADO_CLAN = { pendiente: "Pendiente", aprobada: "Miembro", rechazada: "Rechazada", expulsada: "Expulsado" };
+function tarjetaClan(s) {
+  const id = esc(s.uid);
+  const pill = '<span class="pill' + (s.estado === "aprobada" ? " ok" : s.estado === "pendiente" ? " adm" : " mal") + '">' + esc(ESTADO_CLAN[s.estado] || s.estado) + "</span>";
+  const btn = (accion, texto, clase) => '<button type="button" class="btn' + clase + '" data-c="' + accion + '" data-id="' + id + '">' + texto + "</button>";
+  const botones = s.estado === "pendiente" ? btn("aprobar", "Aceptar", " primario") + btn("rechazar", "Rechazar", " peligro")
+    : s.estado === "aprobada" ? btn("expulsar", "Expulsar", " peligro")
+    : btn("aprobar", s.estado === "expulsada" ? "Readmitir" : "Aceptar", "");
+  return '<li class="perfil"><b>' + esc(s.nombre || "Sin nombre") + "</b> " + pill +
+    '<small style="display:block;color:var(--suave)">' + esc(s.tag || "") + (s.pedidoEn ? " · pidió " + esc(fecha(s.pedidoEn)) : "") + (s.resueltoEn ? " · resuelto " + esc(fecha(s.resueltoEn)) : "") + "</small>" +
+    '<div class="acciones-c">' + botones + "</div></li>";
+}
+async function cargarClan() {
+  const ul = $("clan-lista");
+  try {
+    const r = await llamar("adminClanSolicitudes");
+    clanAdmin = r.solicitudes || [];
+    $("n-clan").textContent = r.pendientes ? " (" + r.pendientes + ")" : "";
+    ul.innerHTML = clanAdmin.length ? clanAdmin.map(tarjetaClan).join("") : '<li class="vacio">Todavía nadie ha pedido entrar.</li>';
+  } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+}
+$("clan-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-c]"); if (!b) return;
+  const s = clanAdmin.find((x) => x.uid === b.dataset.id); if (!s) return;
+  const accion = b.dataset.c, nombre = s.nombre || s.tag || "este jugador";
+  const pregunta = {
+    aprobar: "¿Aceptar a «" + nombre + "» en el Clan Legión Real?",
+    rechazar: "¿Rechazar la solicitud de «" + nombre + "»? Podrá volver a pedirlo.",
+    expulsar: "¿Expulsar a «" + nombre + "» de la sección? Perderá el acceso y no podrá volver a pedirlo (tú puedes readmitirlo cuando quieras).",
+  }[accion];
+  if (!pregunta || !confirm(pregunta)) return;
+  b.disabled = true;
+  try {
+    await llamar("adminClanResolver", { uid: s.uid, accion });
+    registroCargado = false;
+    aviso(accion === "aprobar" ? "Jugador aceptado." : accion === "rechazar" ? "Solicitud rechazada." : "Jugador expulsado.", true);
+    await cargarClan();
+  } catch (e) { aviso(msgErr(e)); b.disabled = false; }
+});
+$("clan-mazos-act").onclick = async () => {
+  const b = $("clan-mazos-act"), msg = (t, ok) => { $("clan-msg").textContent = t; $("clan-msg").className = "msg" + (ok ? " ok" : ""); };
+  b.disabled = true; msg("Trayendo los mazos de los mejores… puede tardar unos segundos.", true);
+  try {
+    const r = await llamar("adminClanMazosActualizar");
+    registroCargado = false;
+    msg("Listo: " + num(r.mazos) + (r.mazos === 1 ? " mazo actualizado." : " mazos actualizados."), true);
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+
 // ---------- Registro ----------
 function textoAccion(r) {
   switch (r.accion) {
@@ -1595,6 +1661,10 @@ function textoAccion(r) {
     case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
     case "referidos-activar": return "Activó los referidos para este perfil";
     case "referidos-quitar": return "Quitó los referidos a este perfil";
+    case "clan-aprobar": return "Aceptó a un jugador en el Clan Legión Real";
+    case "clan-rechazar": return "Rechazó una solicitud para entrar al Clan Legión Real";
+    case "clan-expulsar": return "Expulsó a un jugador del Clan Legión Real";
+    case "clan-mazos": return "Actualizó los mazos de los mejores del juego";
     case "todo-a-bonos": return "Pasó " + num(r.monto) + " créditos a bonos (" + (r.motivo || "") + ")";
     default: return r.accion || "";
   }
@@ -1608,7 +1678,7 @@ async function cargarRegistro() {
     const lista = r.registros || [];
     ul.innerHTML = lista.length ? lista.map((x) => {
       const c = cuentas.find((y) => y.uid === x.uid);
-      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : String(x.accion || "").startsWith("dinamica-") ? "Dinámicas" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
+      return "<li><b>" + esc(String(x.accion || "").startsWith("mega-") ? "Mega Legión" : String(x.accion || "").startsWith("torneo-") ? "Torneos" : String(x.accion || "").startsWith("dinamica-") ? "Dinámicas" : String(x.accion || "").startsWith("clan-") ? "Clan Legión Real" : (c ? (c.nombre || c.correo) : x.uid)) + "</b> — " + esc(textoAccion(x)) +
         "<small>" + esc(fecha(x.fecha)) + " · " + esc(x.admin) + (x.motivo ? " · " + esc(x.motivo) : "") + "</small></li>";
     }).join("") : '<li class="vacio">Todavía no hay acciones.</li>';
   } catch (e) { ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
