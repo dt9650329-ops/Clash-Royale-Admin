@@ -76,6 +76,15 @@ input:focus,select:focus{border-color:var(--cian)}
 .pill{display:inline-block;margin-top:2px;padding:1px 8px;border-radius:999px;font-size:.75rem;font-weight:700;border:1px solid var(--linea);color:var(--suave)}
 .pill.mal{border-color:var(--error);color:var(--error)}
 .pill.adm{border-color:var(--oro);color:var(--oro)}
+.miem-res{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
+.miem-res div{border:2px solid var(--linea);border-radius:12px;padding:8px;text-align:center;background:rgba(5,11,32,.55)}
+.miem-res b{display:block;font-size:1.05rem;color:var(--oro)}
+.miem-res span{font-size:.75rem;color:var(--suave)}
+.miem-orden{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.miem-datos{display:flex;gap:4px 14px;flex-wrap:wrap;margin-top:6px;font-size:.85rem;color:var(--suave)}
+.miem-datos .g{color:var(--ok);font-weight:700}
+.miem-datos .p{color:var(--error);font-weight:700}
+.pill.ok{border-color:var(--ok);color:var(--ok)}
 .vacio{text-align:center;color:var(--suave);padding:28px 0}
 .reg{list-style:none;margin:0;padding:0}
 .reg li{padding:10px 0;border-bottom:1px solid var(--linea)}
@@ -544,8 +553,16 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <p id="clan-msg" class="msg" role="status"></p>
       </div>
       <h2 style="margin:16px 0 10px">Miembros del clan</h2>
-      <div class="panel pad" id="clan-resumen-adm"></div>
-      <ul class="lista" id="clan-miembros-adm" style="margin-top:10px"></ul>
+      <div class="miem-res" id="clan-resumen-adm"></div>
+      <div class="miem-orden" id="miem-orden-adm">
+        <button type="button" class="chip activa" data-ord="rango">Rango</button>
+        <button type="button" class="chip" data-ord="donadas">Donaciones</button>
+        <button type="button" class="chip" data-ord="trofeos">Trofeos</button>
+        <button type="button" class="chip" data-ord="ganadas">Victorias</button>
+        <button type="button" class="chip" data-ord="guerra">Guerra</button>
+      </div>
+      <p class="suave" id="miem-act-adm" style="margin:0 0 10px"></p>
+      <ul class="lista" id="clan-miembros-adm"></ul>
       <h2 style="margin:16px 0 10px">Solicitudes de acceso</h2>
       <ul class="lista" id="clan-lista"></ul>
     </section>
@@ -1604,6 +1621,7 @@ function tarjetaClan(s) {
 }
 // ---------- Clan Legión Real: quién es quién dentro del clan ----------
 const ORDEN_ROL = { "Líder": 0, "Colíder": 1, "Veterano": 2, "Miembro": 3 };
+let miembrosAdm = [], ordenAdm = "rango";
 function haceClan(ms) {
   const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
   if (m < 1) return "ahora mismo";
@@ -1613,27 +1631,44 @@ function haceClan(ms) {
   const d = Math.round(h / 24);
   return "hace " + d + (d === 1 ? " día" : " días");
 }
-function tarjetaMiembroClan(m) {
+function tarjetaMiembroClan(m, i) {
   const clase = m.rol === "Líder" ? " adm" : m.rol === "Colíder" ? " ok" : "";
-  const partidas = m.ganadas == null ? "" : " · últimas partidas: " + m.ganadas + " ganadas / " + m.perdidas + " perdidas";
-  return '<li class="perfil"><b>' + esc(m.nombre) + "</b> " + '<span class="pill' + clase + '">' + esc(m.rol) + "</span>" +
-    '<small style="display:block;color:var(--suave)">' + esc(m.tag) + " · nivel " + num(m.nivel) + " · " + num(m.trofeos) + " trofeos</small>" +
-    '<small style="display:block;color:var(--suave)">Donó ' + num(m.donadas) + " · recibió " + num(m.recibidas) + partidas + "</small>" +
-    '<small style="display:block;color:var(--suave)">Guerra esta semana: ' + num(m.guerraMazos) + " mazos" + (m.visto ? " · visto " + esc(haceClan(m.visto)) : "") + "</small></li>";
+  const partidas = m.ganadas == null ? "" : '<span>Últimas partidas: <span class="g">' + num(m.ganadas) + ' ✅</span> / <span class="p">' + num(m.perdidas) + " ❌</span></span>";
+  return '<li class="perfil"><b>' + (i + 1) + ". " + esc(m.nombre) + '</b> <span class="pill' + clase + '">' + esc(m.rol) + "</span>" +
+    '<small style="display:block;color:var(--suave)">' + esc(m.tag) + " · nivel " + num(m.nivel) + "</small>" +
+    '<div class="miem-datos"><span>🏆 ' + num(m.trofeos) + "</span><span>🎁 dio " + num(m.donadas) + " · recibió " + num(m.recibidas) + "</span>" + partidas +
+    "<span>⚔️ guerra: " + num(m.guerraMazos) + " mazos · " + num(m.guerraFama) + " fama</span>" + (m.visto ? "<span>👁 " + esc(haceClan(m.visto)) + "</span>" : "") + "</div></li>";
 }
+function pintarMiembrosAdmin() {
+  const ul = $("clan-miembros-adm");
+  document.querySelectorAll("#miem-orden-adm .chip").forEach((c) => c.classList.toggle("activa", c.dataset.ord === ordenAdm));
+  const rango = (x, y) => (ORDEN_ROL[x.rol] ?? 9) - (ORDEN_ROL[y.rol] ?? 9) || y.donadas - x.donadas;
+  const val = { donadas: (m) => m.donadas, trofeos: (m) => m.trofeos, ganadas: (m) => (m.ganadas == null ? -1 : m.ganadas), guerra: (m) => m.guerraMazos * 100000 + m.guerraFama };
+  const lista = miembrosAdm.slice().sort(ordenAdm === "rango" ? rango : (x, y) => val[ordenAdm](y) - val[ordenAdm](x));
+  ul.innerHTML = lista.length ? lista.map(tarjetaMiembroClan).join("") : '<li class="vacio">No hay datos del clan todavía.</li>';
+}
+document.querySelectorAll("#miem-orden-adm .chip").forEach((c) => { c.onclick = () => { ordenAdm = c.dataset.ord; pintarMiembrosAdmin(); }; });
 async function cargarMiembrosClanAdmin() {
-  const ul = $("clan-miembros-adm"), res = $("clan-resumen-adm");
-  res.innerHTML = '<span class="suave">Cargando miembros del clan…</span>';
+  const res = $("clan-resumen-adm");
+  $("miem-act-adm").textContent = "Cargando miembros del clan…";
   try {
     const r = await llamar("adminClanMiembros");
-    const lista = (r.miembros || []).slice().sort((x, y) => (ORDEN_ROL[x.rol] ?? 9) - (ORDEN_ROL[y.rol] ?? 9) || y.donadas - x.donadas);
+    miembrosAdm = r.miembros || [];
     const c = r.clan || {};
-    const cuenta = (rol) => lista.filter((m) => m.rol === rol).length;
-    res.innerHTML = "<b>" + esc(c.nombre || "Clan") + "</b> " + esc(c.tag || "") +
-      '<small style="display:block;color:var(--suave)">' + num(c.miembros || lista.length) + " miembros · " + cuenta("Líder") + " líder · " + cuenta("Colíder") + " colíderes · " + cuenta("Veterano") + " veteranos · " + num(c.donacionesSemana || 0) + " donaciones por semana · " + num(c.puntos || 0) + " puntos" +
-      (r.actualizado ? " · actualizado " + esc(haceClan(r.actualizado)) : "") + "</small>";
-    ul.innerHTML = lista.length ? lista.map(tarjetaMiembroClan).join("") : '<li class="vacio">No hay datos del clan todavía.</li>';
-  } catch (e) { res.innerHTML = ""; ul.innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
+    const cuenta = (rol) => miembrosAdm.filter((m) => m.rol === rol).length;
+    const suma = (k) => miembrosAdm.reduce((t, m) => t + (Number(m[k]) || 0), 0);
+    const tarjetas = [
+      [num(c.miembros || miembrosAdm.length), "miembros"],
+      [num(c.donacionesSemana || 0), "donaciones/semana"],
+      [num(c.puntos || 0), "puntos del clan"],
+      [cuenta("Líder") + " · " + cuenta("Colíder") + " · " + cuenta("Veterano"), "líder · colíderes · veteranos"],
+      [num(suma("guerraMazos")), "mazos en guerra esta semana"],
+      [num(suma("ganadas")) + " / " + num(suma("perdidas")), "partidas ganadas / perdidas"],
+    ];
+    res.innerHTML = tarjetas.map((t) => "<div><b>" + esc(t[0]) + "</b><span>" + esc(t[1]) + "</span></div>").join("");
+    $("miem-act-adm").textContent = (c.nombre ? c.nombre + " " + (c.tag || "") + " · " : "") + (r.actualizado ? "actualizado " + haceClan(r.actualizado) + ". " : "") + "Las partidas son de las últimas 25 de cada jugador, sin contar las amistosas.";
+    pintarMiembrosAdmin();
+  } catch (e) { res.innerHTML = ""; $("miem-act-adm").textContent = ""; $("clan-miembros-adm").innerHTML = '<li class="vacio">' + esc(msgErr(e)) + "</li>"; }
 }
 async function cargarClan() {
   const ul = $("clan-lista");
