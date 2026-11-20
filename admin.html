@@ -171,6 +171,21 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
 .ap-gan{color:#4ade80}.ap-per{color:#f87171}
 .ap-det{margin:8px 0 2px}.ap-det summary{cursor:pointer;color:var(--cian)}
 .ap-det li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--linea);font-size:.92rem}
+.cartas-sel{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.cartas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px;max-height:380px;overflow-y:auto;margin:8px 0;padding:8px;border:2px solid var(--linea);border-radius:10px;background:var(--fondo)}
+.carta{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;min-height:52px;border-radius:10px;border:2px solid var(--linea);background:var(--panel);color:var(--texto);font:inherit;line-height:1.15;text-align:center;cursor:pointer}
+.carta img{display:block;width:auto;height:64px;max-width:100%;object-fit:contain}
+.carta .c-en{font-size:.78rem;font-weight:700}
+.carta .c-es{font-size:.68rem;font-weight:400;color:var(--suave)}
+.carta.sel .c-es{color:var(--oro)}
+.carta:hover{border-color:var(--cian)}
+.carta.sel{border-color:var(--oro);background:rgba(253,181,43,.16);color:var(--oro)}
+.carta.rara{border-color:var(--error);color:var(--error)}
+.carta[hidden]{display:none}
+.cartas-sel .carta{flex-direction:row;font-size:.8rem;font-weight:700;min-height:0;padding:6px 10px;border-radius:999px}
+.cartas-otra{display:flex;gap:8px;margin:0 0 8px}
+.cartas-otra input{flex:1;width:auto}
+.cartas-otra .btn{padding:10px 14px}
 </style>
 </head>
 <body>
@@ -415,7 +430,7 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
     <section id="t-torneos" class="oculto">
       <div class="panel pad">
         <h2>Crear torneo</h2>
-        <p class="suave">Inscripción gratis, sin créditos. El ganador reclama el Pass Royale y tú lo pagas por fuera.</p>
+        <p class="suave">Inscripción gratis, sin créditos. El premio puede ser un pase o regalo por puesto (lo pagas tú por fuera) o créditos según las victorias de cada jugador.</p>
         <label>Nombre
           <input id="t-nombre" maxlength="60" placeholder="Ej. Torneo Pass Royale · semana 1">
         </label>
@@ -431,7 +446,27 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <label style="margin-top:10px">Cupos (máx. 1000)
           <input id="t-cupos" type="number" inputmode="numeric" min="2" max="1000" step="1" placeholder="1000">
         </label>
-        <div style="margin-top:10px">
+        <label style="margin-top:10px">Tipo de premio
+          <select id="t-tipo-premio">
+            <option value="puestos">Por puesto (Pass Royale, gemas…)</option>
+            <option value="creditos">Créditos según las victorias</option>
+          </select>
+        </label>
+        <div id="t-bloque-creditos" class="oculto" style="margin-top:10px">
+          <div class="dos">
+            <label>Créditos por victoria
+              <input id="t-cred-vic" type="number" inputmode="numeric" min="1" max="100000" step="1" placeholder="Ej. 5">
+            </label>
+            <label>Tipo de créditos
+              <select id="t-cred-tipo">
+                <option value="bono">Bonos (se juegan, no se retiran)</option>
+                <option value="recargado">Canjeables (retirables)</option>
+              </select>
+            </label>
+          </div>
+          <p class="suave" style="margin:0">Al finalizar el torneo, cada inscrito recibe: victorias × créditos por victoria. Las victorias salen de la tabla de Clash Royale.</p>
+        </div>
+        <div id="t-bloque-puestos" style="margin-top:10px">
           <b>Premios por puesto</b>
           <p class="suave" style="margin:4px 0 8px">Escribe el premio de cada puesto. Agrega tantos puestos como quieras premiar (hasta 50): el 1.º, el 2.º, el 3.º…</p>
           <div id="t-premios"></div>
@@ -484,10 +519,18 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
           </label>
         </div>
         <div id="ds-extra-cartas" class="oculto">
-          <label>Cartas que debe usar (1 a 3, separadas por coma)
-            <input id="ds-cartas" maxlength="100" placeholder="Ej. Mago de Hielo, Esqueletos">
+          <label>Cartas que debe usar (elige de 1 a 3)
+            <input id="ds-cartas" maxlength="100" readonly placeholder="Toca las cartas de la lista">
           </label>
-          <p class="suave" style="margin:4px 0 0">Deben estar en el mazo de la partida que gane (no importa el orden ni si las jugó o no dentro del combate). Escribe el nombre tal como aparece en Clash Royale.</p>
+          <div id="ds-cartas-sel" class="cartas-sel"></div>
+          <p class="suave" style="margin:6px 0"><span id="ds-cartas-contador">0 de 3 elegidas</span> <span id="ds-cartas-aviso" style="color:var(--error)"></span></p>
+          <input id="ds-cartas-buscar" type="search" placeholder="Buscar carta (inglés o español)" autocomplete="off">
+          <div id="ds-cartas-grid" class="cartas-grid"></div>
+          <div class="cartas-otra">
+            <input id="ds-cartas-otra" maxlength="40" placeholder="¿Carta nueva que no sale? Escríbela en inglés">
+            <button type="button" id="ds-cartas-otra-btn" class="btn">Agregar</button>
+          </div>
+          <p class="suave" style="margin:4px 0 0">Deben estar en el mazo de la partida que gane (no importa el orden ni si las jugó o no dentro del combate). Los nombres se guardan en inglés, tal como los reconoce el juego.</p>
         </div>
         <label>Veces seguidas para ganar<input id="ds-victorias" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="5"></label>
         <label>Premio (créditos para cada ganador)<input id="ds-premio" type="number" inputmode="numeric" min="1" step="1" placeholder="20"></label>
@@ -552,6 +595,79 @@ body::before{content:"";position:fixed;z-index:-1;pointer-events:none;top:50%;le
         <button type="button" class="btn ancho" id="clan-mazos-act">Actualizar mazos y miembros ahora</button>
         <p id="clan-msg" class="msg" role="status"></p>
       </div>
+
+      <div class="panel pad" style="margin-top:16px">
+        <h2>Crear para el clan</h2>
+        <p class="suave">🔒 Lo que crees aquí lo ven y lo juegan <b>solo los miembros aceptados del clan</b>. Los demás jugadores no lo ven. Aparece en la sección «Dinámicas del clan» de su perfil.</p>
+        <label>Qué quieres crear
+          <select id="cd-tipo">
+            <option value="evento">Evento</option>
+            <option value="torneo">Torneo</option>
+            <option value="encuesta">Dinámica (encuesta con premio)</option>
+          </select>
+        </label>
+        <label style="margin-top:10px">Título
+          <input id="cd-titulo" maxlength="60" placeholder="Ej. Torneo amistoso del sábado">
+        </label>
+        <label style="margin-top:10px">Descripción (opcional)
+          <textarea id="cd-desc" rows="3" maxlength="300" style="resize:vertical" placeholder="Explica en palabras simples de qué trata y cómo se participa"></textarea>
+        </label>
+
+        <div id="cd-ev">
+          <div class="dos" style="margin-top:10px">
+            <label>Cupo (vacío = sin límite)
+              <input id="cd-cupo" type="number" inputmode="numeric" min="1" max="1000" step="1" placeholder="Ej. 16">
+            </label>
+            <label>Cierra inscripciones (opcional)
+              <input id="cd-cierra-ev" type="datetime-local">
+            </label>
+          </div>
+          <label style="margin-top:10px">Premio (texto, opcional)
+            <input id="cd-premio-txt" maxlength="100" placeholder="Ej. Pass Royale">
+          </label>
+          <label style="margin-top:10px">Código o contraseña para entrar (opcional)
+            <input id="cd-codigo" maxlength="80" placeholder="Solo lo ven los jugadores que se inscriban">
+          </label>
+        </div>
+
+        <div id="cd-din" class="oculto">
+          <label style="margin-top:10px">Pregunta
+            <input id="cd-pregunta" maxlength="200" placeholder="Escribe la pregunta">
+          </label>
+          <label style="margin-top:10px">Opciones (una por línea, de 2 a 6)
+            <textarea id="cd-opciones" rows="4" maxlength="500" style="resize:vertical" placeholder="Sí&#10;No"></textarea>
+          </label>
+          <label style="margin-top:10px">Opción correcta (opcional)
+            <select id="cd-correcta">
+              <option value="">Sin respuesta correcta (todos los que respondan ganan)</option>
+            </select>
+          </label>
+          <div class="dos" style="margin-top:10px">
+            <label>Premio (monedas)
+              <input id="cd-premio" type="number" inputmode="numeric" min="1" max="1000" step="1" value="1">
+            </label>
+            <label>Entrada (créditos, 0 = gratis)
+              <input id="cd-costo" type="number" inputmode="numeric" min="0" max="1000" step="1" value="0">
+            </label>
+          </div>
+          <label style="margin-top:10px">Cierra (opcional)
+            <input id="cd-cierra-din" type="datetime-local">
+          </label>
+          <label style="margin-top:10px">Cuándo se paga el premio
+            <select id="cd-pago">
+              <option value="inmediato">Al responder (cada jugador cobra al instante)</option>
+              <option value="alcerrar">Al cerrar la dinámica (se paga solo a todos los que respondieron)</option>
+            </select>
+          </label>
+        </div>
+
+        <button type="button" class="btn primario ancho" id="cd-crear" style="margin-top:12px">Crear para el clan</button>
+        <p id="cd-msg" class="msg" role="status"></p>
+      </div>
+      <h2 style="margin:16px 0 10px">Eventos y torneos del clan</h2>
+      <ul class="lista" id="clan-ev-lista"></ul>
+      <h2 style="margin:16px 0 10px">Dinámicas del clan</h2>
+      <ul class="lista" id="clan-din-lista"></ul>
       <h2 style="margin:16px 0 10px">Miembros del clan</h2>
       <div class="miem-res" id="clan-resumen-adm"></div>
       <div class="miem-orden" id="miem-orden-adm">
@@ -1225,7 +1341,10 @@ let torneosAdmin = [];
 const abiertosT = new Set(); // torneos con la lista de inscritos desplegada
 const ESTADO_T = { abierto: "Inscripciones abiertas", "en-juego": "En juego", finalizado: "Finalizado", cancelado: "Cancelado" };
 const claseT = (e) => (e === "cancelado" ? " mal" : e === "abierto" ? " adm" : e === "finalizado" ? " ok" : "");
-const necesitaAtencion = (t) => t.estado === "en-juego" || (t.estado === "finalizado" && t.premioReclamado && !t.premioEntregado);
+const necesitaAtencion = (t) => t.estado === "en-juego" || (t.estado === "finalizado" && Array.isArray(t.ganadores) && t.ganadores.some((g) => (!!(t.reclamados && t.reclamados[g.uid]) || (g.puesto === 1 && !!t.premioReclamado)) && !(!!(t.entregados && t.entregados[g.puesto]) || (g.puesto === 1 && !!t.premioEntregado)))) || (t.estado === "finalizado" && !!t.premioCreditos && !t.pagoCreditos);
+// Premio en créditos: al finalizar se paga (victorias × créditos por victoria) a cada inscrito.
+// tipo: "bono" (se juegan, no se retiran) o "recargado" (canjeables, retirables)
+const textoPremioCreditos = (pc) => num(pc.porVictoria || 0) + " créditos " + (pc.tipo === "recargado" ? "canjeables" : "en bonos") + " por victoria";
 
 function tarjetaTorneo(t) {
   const ins = t.inscritos || [];
@@ -1234,6 +1353,7 @@ function tarjetaTorneo(t) {
   const fila = (k, v) => "<dt>" + k + "</dt><dd>" + esc(v) + "</dd>";
   const nombreDe = (i) => i.nombre || i.correo || i.uid;
   const premios = t.premios && t.premios.length ? t.premios : [t.premio || "Pass Royale"];
+  const pc = t.premioCreditos || null;   // torneo con premio en créditos por victoria
   const gs = Array.isArray(t.ganadores) && t.ganadores.length ? t.ganadores : (gan ? [Object.assign({ puesto: 1, premio: t.premio || "Pass Royale" }, gan)] : []);
   const entregado = (p) => !!(t.entregados && t.entregados[p]) || (p === 1 && !!t.premioEntregado);
   const reclamado = (g) => !!(t.reclamados && t.reclamados[g.uid]) || (g.puesto === 1 && !!t.premioReclamado);
@@ -1260,15 +1380,21 @@ function tarjetaTorneo(t) {
   if (t.estado === "abierto") {
     acc = bloqueCodigo + '<div class="acciones-c"><button type="button" class="btn primario" data-t="iniciar" data-id="' + id + '">Iniciar torneo (cierra inscripciones)</button>' +
       '<button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar</button></div>';
+  } else if (t.estado === "en-juego" && pc) {
+    acc = bloqueCodigo + botonTabla +
+      '<div class="acciones-c"><button type="button" class="btn primario" data-t="pagar" data-id="' + id + '">Finalizar y pagar créditos</button></div>' +
+      '<div class="acciones-c"><button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar torneo</button></div>';
   } else if (t.estado === "en-juego") {
     acc = bloqueCodigo + botonTabla +
-      '<div class="acciones-c"><button type="button" class="btn primario" data-t="gantabla" data-id="' + id + '">Declarar ganador por la tabla</button></div>' +
+      '<div class="acciones-c"><button type="button" class="btn primario" data-t="gantabla" data-id="' + id + '">' + (premios.length > 1 ? "Declarar ganadores por la tabla" : "Declarar ganador por la tabla") + '</button></div>' +
       (ins.length
       ? '<div class="ganador-fila"><select aria-label="Ganador">' +
           ins.map((i) => '<option value="' + esc(i.uid) + '">' + esc(nombreDe(i)) + (i.tag ? " · " + esc(i.tag) : "") + "</option>").join("") +
         '</select><button type="button" class="btn primario" data-t="ganador" data-id="' + id + '">Declarar ganador</button></div>'
       : '<p class="suave" style="margin:12px 0 0">Nadie se inscribió, no hay a quién declarar ganador.</p>') +
       '<div class="acciones-c"><button type="button" class="btn peligro" data-t="cancelar" data-id="' + id + '">Cancelar torneo</button></div>';
+  } else if (t.estado === "finalizado" && pc && !t.pagoCreditos) {
+    acc = botonTabla + '<div class="acciones-c"><button type="button" class="btn primario" data-t="pagar" data-id="' + id + '">Pagar créditos pendientes</button></div>';
   } else if (t.estado === "finalizado" && gs.some((g) => !entregado(g.puesto))) {
     acc = botonTabla + '<div class="acciones-c">' + gs.filter((g) => !entregado(g.puesto)).map((g) =>
       '<button type="button" class="btn primario" data-t="premio" data-puesto="' + g.puesto + '" data-id="' + id + '">Marcar entregado' + (gs.length > 1 ? " · " + g.puesto + ".º puesto" : "") + "</button>").join("") + "</div>";
@@ -1280,10 +1406,10 @@ function tarjetaTorneo(t) {
     '<div class="p-cab"><span class="info"><b>' + esc(t.nombre) + '</b></span>' +
     '<span class="der"><span class="pill' + claseT(t.estado) + '">' + esc(ESTADO_T[t.estado] || t.estado) + '</span></span></div>' +
     '<dl class="p-datos">' +
-      (premios.length > 1 ? premios.map((p, i) => fila((i + 1) + ".º puesto", p)).join("") : fila("Premio", premios[0])) +
+      (pc ? fila("Premio", textoPremioCreditos(pc)) : premios.length > 1 ? premios.map((p, i) => fila((i + 1) + ".º puesto", p)).join("") : fila("Premio", premios[0])) +
       fila("Código del juego", t.tagJuego || "Sin publicar") +
       fila("Inscritos", ins.length + " de " + Math.min(t.cupos || 1000, 1000)) +
-      (gs.length > 1
+      (pc ? (t.pagoCreditos ? fila("Pago", "Pagado ✓ · " + num(t.pagoCreditos.total || 0) + " créditos a " + num(t.pagoCreditos.jugadores || 0) + " jugadores") : (t.estado === "finalizado" ? fila("Pago", "Pendiente de pagar") : "")) : gs.length > 1
         ? gs.map((g) => fila("Ganó el " + g.puesto + ".º puesto", (g.nombre || g.uid) + (g.tag ? " · " + g.tag : "") + " — " + (g.premio || "") + " · " + (entregado(g.puesto) ? "Entregado ✓" : reclamado(g) ? "Reclamado · por entregar" : "Aún sin reclamar"))).join("")
         : (gan ? fila("Ganador", (gan.nombre || gan.uid) + (gan.tag ? " · " + gan.tag : "")) : "") +
           (t.estado === "finalizado" ? fila("Pase", t.premioEntregado ? "Entregado ✓" : t.premioReclamado ? "Reclamado · por entregar" : "Aún sin reclamar") : "")) +
@@ -1335,11 +1461,26 @@ $("t-del-puesto").onclick = () => {
   if (act.length > 1) { act.pop(); pintarPremiosForm(act); }
 };
 
+$("t-tipo-premio").onchange = () => {
+  const cred = $("t-tipo-premio").value === "creditos";
+  $("t-bloque-creditos").classList.toggle("oculto", !cred);
+  $("t-bloque-puestos").classList.toggle("oculto", cred);
+};
+
 $("t-crear").onclick = async () => {
   const msg = (t, ok) => { $("t-msg").textContent = t; $("t-msg").className = "msg" + (ok ? " ok" : ""); };
   const nombre = $("t-nombre").value.trim();
-  const premios = Array.from($("t-premios").querySelectorAll("input")).map((i) => i.value.trim());
-  if (premios.some((p) => !p)) { msg("Escribe el premio de cada puesto o quita los que sobren."); return; }
+  const esCred = $("t-tipo-premio").value === "creditos";
+  let premios = [], premioCreditos = null;
+  if (esCred) {
+    const porVictoria = Number($("t-cred-vic").value);
+    if ($("t-cred-vic").value === "" || !Number.isInteger(porVictoria) || porVictoria < 1 || porVictoria > 100000) { msg("Escribe cuántos créditos se pagan por cada victoria (número entero, mínimo 1)."); return; }
+    premioCreditos = { porVictoria, tipo: $("t-cred-tipo").value === "recargado" ? "recargado" : "bono" };
+    premios = [textoPremioCreditos(premioCreditos)];   // texto para mostrar; lo que cuenta es premioCreditos
+  } else {
+    premios = Array.from($("t-premios").querySelectorAll("input")).map((i) => i.value.trim());
+    if (premios.some((p) => !p)) { msg("Escribe el premio de cada puesto o quita los que sobren."); return; }
+  }
   const descripcion = $("t-desc").value.trim();
   const tag = $("t-tag").value.trim();
   const clave = $("t-clave").value.trim();
@@ -1349,8 +1490,8 @@ $("t-crear").onclick = async () => {
   if (cupos !== null && (!Number.isInteger(cupos) || cupos < 2 || cupos > 1000)) { msg("Los cupos deben ser un número entero entre 2 y 1000, o déjalo vacío (1000)."); return; }
   const b = $("t-crear"); b.disabled = true; msg("");
   try {
-    const r = await llamar("adminTorneoCrear", { nombre, premios, descripcion, cupos, tag, clave });
-    $("t-nombre").value = ""; $("t-tag").value = ""; $("t-clave").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; pintarPremiosForm(["Pass Royale"]);
+    const r = await llamar("adminTorneoCrear", Object.assign({ nombre, premios, descripcion, cupos, tag, clave }, premioCreditos ? { premioCreditos } : {}));
+    $("t-nombre").value = ""; $("t-tag").value = ""; $("t-clave").value = ""; $("t-cupos").value = ""; $("t-desc").value = ""; pintarPremiosForm(["Pass Royale"]); $("t-tipo-premio").value = "puestos"; $("t-tipo-premio").onchange(); $("t-cred-vic").value = ""; $("t-cred-tipo").value = "bono";
     registroCargado = false;
     msg("Torneo creado y verificado en Clash Royale" + (r && r.nombreJuego ? ": " + r.nombreJuego : "") + ".", true);
     await cargarTorneos();
@@ -1388,15 +1529,32 @@ $("torneos").addEventListener("click", async (ev) => {
     b.disabled = true;
     try {
       const r = await llamar("torneoTabla", { id: t.id });
-      const lineas = (r.filas || []).slice(0, 15).map((f) => f.puesto + ". " + (f.nombre || "—") + " · " + f.puntos + " pts" + (f.inscrito ? "" : " (no inscrito)"));
+      const pcT = t.premioCreditos;
+      const lineas = (r.filas || []).slice(0, 15).map((f) => f.puesto + ". " + (f.nombre || "—") + " · " + f.puntos + (pcT ? " victorias" + (f.inscrito ? " → " + num((Number(f.puntos) || 0) * (pcT.porVictoria || 0)) + " créditos" : "") : " pts") + (f.inscrito ? "" : " (no inscrito)"));
       alert((lineas.length ? lineas.join("\n") : "La tabla todavía está vacía.") + (r.empate ? "\n\nHay empate en el primer lugar." : ""));
     } catch (e) { aviso(msgErr(e)); }
     b.disabled = false;
     return;
+  } else if (acc === "pagar") {
+    const pc = t.premioCreditos || {};
+    b.disabled = true;
+    let resumen = "";
+    try {
+      const r = await llamar("torneoTabla", { id: t.id });
+      const est = r.pagoEstimado || { jugadores: 0, total: 0 };   // lo calcula el servidor con todos los inscritos
+      resumen = "\n\nSegún la tabla de ahora se pagarían " + num(est.total) + " créditos " + (pc.tipo === "recargado" ? "canjeables" : "en bonos") + " a " + num(est.jugadores) + " jugadores.";
+    } catch (e) { resumen = ""; }
+    b.disabled = false;
+    fn = "adminTorneoPagarCreditos"; datos = { id: t.id };
+    pregunta = "¿Finalizar «" + t.nombre + "» y pagar " + textoPremioCreditos(pc) + " a cada inscrito?\nSe toma la tabla de Clash Royale en este momento y solo se paga una vez." + resumen;
+    listo = "Torneo finalizado y créditos pagados.";
   } else if (acc === "gantabla") {
     fn = "adminTorneoGanador"; datos = { id: t.id };
-    pregunta = "¿Declarar ganador al líder de la tabla de «" + t.nombre + "»?\nEl torneo queda finalizado.";
-    listo = "Ganador declarado por la tabla.";
+    const nPuestos = (t.premios || []).length;
+    pregunta = nPuestos > 1
+      ? "¿Declarar los ganadores según la tabla de «" + t.nombre + "»?\nSe da el premio de cada puesto a los mejores inscritos con victorias (hasta " + nPuestos + "). El torneo queda finalizado."
+      : "¿Declarar ganador al líder de la tabla de «" + t.nombre + "»?\nEl torneo queda finalizado.";
+    listo = nPuestos > 1 ? "Ganadores declarados por la tabla." : "Ganador declarado por la tabla.";
   } else if (acc === "ganador") {
     const sel = b.closest(".perfil").querySelector("select");
     const g = (t.inscritos || []).find((i) => i.uid === (sel && sel.value)); if (!g) return;
@@ -1433,8 +1591,9 @@ function tarjetaDinamica(d) {
   const btn = d.estado === "activa"
     ? '<button type="button" class="btn peligro" data-d="cerrar" data-id="' + id + '">Cerrar encuesta</button>'
     : (d.liquidada ? "" : '<button type="button" class="btn" data-d="abrir" data-id="' + id + '">Reabrir</button>');
-  return '<li class="perfil"><b>' + esc(d.titulo) + "</b> " + estado +
+  return '<li class="perfil"><b>' + esc(d.titulo) + "</b> " + estado + (d.soloClan ? ' <span class="pill adm">🔒 Solo clan</span>' : "") +
     '<small style="display:block;color:var(--suave)">' + esc(d.pregunta) + "</small>" +
+    (d.descripcion ? '<small style="display:block;color:var(--suave)">' + esc(d.descripcion) + "</small>" : "") +
     '<small style="display:block;color:var(--suave)">Premio: ' + num(d.premio) + (d.premio === 1 ? " moneda" : " monedas") + (d.pago === "alcerrar" ? (d.liquidada ? " (pagado a " + num(d.pagados) + ")" : " (se paga al cerrar)") : " (se paga al responder)") + (d.correcta != null ? " · solo cobran quienes aciertan (" + num(d.conteo[d.correcta] || 0) + ")" : "") + " · " +
       num(d.total) + (d.total === 1 ? " respuesta" : " respuestas") + (d.cierra ? " · cierra " + esc(fecha(d.cierra)) : "") + "</small>" +
     '<ul class="lista" style="margin-top:10px">' + filas + "</ul>" +
@@ -1459,11 +1618,68 @@ function dsCondicionTexto(d) {
   if (d.tipo === "cartas") return n + " " + DESAFIO_TIPO_TEXTO.cartas + " usando: " + (d.cartas || []).join(", ");
   return n + " " + (DESAFIO_TIPO_TEXTO[d.tipo] || DESAFIO_TIPO_TEXTO.victorias);
 }
+// ---------- Selector de cartas (nombre en inglés + traducción al español, como en el juego) ----------
+// Escribe en #ds-cartas (el mismo campo de siempre, "A, B, C"): lo que se guarda y se compara siempre es el nombre en INGLÉS.
+const CARTAS_CR = [["Archer Queen","Reina arquera"],["Archers","Arqueras"],["Arrows","Flechas"],["Baby Dragon","Dragón bebé"],["Balloon","Globo bomba"],["Bandit","Bandida"],["Barbarian Barrel","Barril de bárbaro"],["Barbarian Hut","Cabaña de bárbaros"],["Barbarians","Bárbaros"],["Bats","Murciélagos"],["Battle Healer","Sanadora de batalla"],["Battle Ram","Ariete de batalla"],["Berserker","Berserker"],["Bomb Tower","Torre bombardera"],["Bomber","Bombardero"],["Boss Bandit","Bandida jefa"],["Bowler","Lanzarrocas"],["Cannon","Cañón"],["Cannon Cart","Carro cañón"],["Cannoneer","Cañonero"],["Clone","Clon"],["Dagger Duchess","Duquesa de dagas"],["Dark Prince","Príncipe oscuro"],["Dart Goblin","Duende dardero"],["Earthquake","Terremoto"],["Electro Dragon","Dragón eléctrico"],["Electro Giant","Gigante eléctrico"],["Electro Spirit","Espíritu eléctrico"],["Electro Wizard","Mago eléctrico"],["Elite Barbarians","Bárbaros de élite"],["Elixir Collector","Recolector de elixir"],["Elixir Golem","Gólem de elixir"],["Executioner","Verdugo"],["Fire Spirit","Espíritu de fuego"],["Fireball","Bola de fuego"],["Firecracker","Petardera"],["Fisherman","Pescador"],["Flying Machine","Máquina voladora"],["Freeze","Congelación"],["Furnace","Horno"],["Giant","Gigante"],["Giant Skeleton","Esqueleto gigante"],["Giant Snowball","Bola de nieve gigante"],["Goblin Barrel","Barril de duendes"],["Goblin Cage","Jaula de duende"],["Goblin Curse","Maldición de duendes"],["Goblin Demolisher","Duende demoledor"],["Goblin Drill","Taladro de duendes"],["Goblin Gang","Pandilla de duendes"],["Goblin Giant","Gigante duende"],["Goblin Hut","Cabaña de duendes"],["Goblin Machine","Máquina duende"],["Goblins","Duendes"],["Goblinstein","Goblinstein"],["Golden Knight","Caballero dorado"],["Golem","Gólem"],["Graveyard","Cementerio"],["Guards","Guardias"],["Heal Spirit","Espíritu curativo"],["Hog Rider","Montapuercos"],["Hunter","Cazador"],["Ice Golem","Gólem de hielo"],["Ice Spirit","Espíritu de hielo"],["Ice Wizard","Mago de hielo"],["Inferno Dragon","Dragón infernal"],["Inferno Tower","Torre infernal"],["Knight","Caballero"],["Lava Hound","Sabueso de lava"],["Lightning","Rayo"],["Little Prince","Principito"],["Lumberjack","Leñador"],["Magic Archer","Arquero mágico"],["Mega Knight","Megacaballero"],["Mega Minion","Megaesbirro"],["Mighty Miner","Minero poderoso"],["Mini P.E.K.K.A","Mini P.E.K.K.A"],["Miner","Minero"],["Minion Horde","Horda de esbirros"],["Minions","Esbirros"],["Mirror","Espejo"],["Monk","Monje"],["Mortar","Mortero"],["Mother Witch","Madre bruja"],["Musketeer","Mosquetera"],["Night Witch","Bruja nocturna"],["P.E.K.K.A","P.E.K.K.A"],["Phoenix","Fénix"],["Poison","Veneno"],["Prince","Príncipe"],["Princess","Princesa"],["Rage","Furia"],["Ram Rider","Jinete de carnero"],["Rascals","Pilluelos"],["Rocket","Cohete"],["Royal Delivery","Entrega real"],["Royal Ghost","Fantasma real"],["Royal Giant","Gigante real"],["Royal Hogs","Cerdos reales"],["Royal Recruits","Reclutas reales"],["Rune Giant","Gigante rúnico"],["Skeleton Army","Ejército de esqueletos"],["Skeleton Barrel","Barril de esqueletos"],["Skeleton Dragons","Dragones esqueleto"],["Skeleton King","Rey esqueleto"],["Skeletons","Esqueletos"],["Sparky","Sparky"],["Spear Goblins","Duendes lanceros"],["Spirit Empress","Emperatriz espiritual"],["Suspicious Bush","Arbusto sospechoso"],["Tesla","Tesla"],["The Log","El tronco"],["Three Musketeers","Tres mosqueteras"],["Tombstone","Lápida"],["Tornado","Tornado"],["Valkyrie","Valquiria"],["Vines","Enredaderas"],["Void","Vacío"],["Wall Breakers","Rompemuros"],["Witch","Bruja"],["Wizard","Mago"],["X-Bow","Ballesta X"],["Zap","Descarga"],["Zappies","Zappies"]];   // [inglés, español]
+const dsNorm = (t) => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+const dsFoto = (nombre) => "https://cdn.royaleapi.com/static/img/cards-150/" + nombre.toLowerCase().replace(/\./g, "").replace(/\s+/g, "-") + ".png";
+let dsGridListo = false;
+function dsCartasSel() { return $("ds-cartas").value.split(",").map((c) => c.trim()).filter(Boolean); }
+function dsCartaToggle(nombre) {
+  const sel = dsCartasSel(), i = sel.findIndex((c) => dsNorm(c) === dsNorm(nombre));
+  $("ds-cartas-aviso").textContent = "";
+  if (i >= 0) sel.splice(i, 1);
+  else if (sel.length >= 3) { $("ds-cartas-aviso").textContent = "Máximo 3. Quita una para elegir otra."; return; }
+  else sel.push(nombre);
+  $("ds-cartas").value = sel.join(", ");
+  dsPintarCartas();
+}
+function dsPintarCartas() {
+  const grid = $("ds-cartas-grid");
+  if (!dsGridListo) {
+    CARTAS_CR.slice().sort((a, b) => a[0].localeCompare(b[0])).forEach(([en, es]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "carta"; b.dataset.e = dsNorm(en); b.dataset.k = dsNorm(en) + "|" + dsNorm(es);
+      const img = document.createElement("img");
+      img.src = dsFoto(en); img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+      img.onerror = () => { img.style.visibility = "hidden"; };   // si la foto no carga, queda solo el nombre
+      const n1 = document.createElement("span"); n1.className = "c-en"; n1.textContent = en;
+      const n2 = document.createElement("span"); n2.className = "c-es"; n2.textContent = es;
+      b.append(img, n1, n2);
+      b.onclick = () => dsCartaToggle(en);
+      grid.appendChild(b);
+    });
+    dsGridListo = true;
+  }
+  const sel = dsCartasSel(), claves = sel.map(dsNorm), q = dsNorm($("ds-cartas-buscar").value);
+  grid.querySelectorAll(".carta").forEach((b) => {
+    b.classList.toggle("sel", claves.includes(b.dataset.e));
+    b.hidden = Boolean(q) && !b.dataset.k.includes(q);
+  });
+  const ch = $("ds-cartas-sel"); ch.innerHTML = "";
+  sel.forEach((n) => {
+    const par = CARTAS_CR.find(([en]) => dsNorm(en) === dsNorm(n));
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "carta sel" + (par ? "" : " rara");
+    b.textContent = n + (par ? " (" + par[1] + ")" : " ⚠") + " ✕";
+    b.title = par ? "Quitar" : "Esta carta no está en la lista: revisa que el nombre esté en inglés y escrito igual que en el juego";
+    b.onclick = () => dsCartaToggle(n);
+    ch.appendChild(b);
+  });
+  $("ds-cartas-contador").textContent = sel.length + " de 3 elegidas";
+}
+$("ds-cartas-buscar").addEventListener("input", dsPintarCartas);
+$("ds-cartas-otra-btn").onclick = () => {
+  const v = $("ds-cartas-otra").value.trim(); if (!v) return;
+  $("ds-cartas-otra").value = "";
+  if (!dsCartasSel().some((c) => dsNorm(c) === dsNorm(v))) dsCartaToggle(v);
+};
 function dsActualizarTipo() {
   const tipo = $("ds-tipo").value;
   $("ds-extra-defensa").classList.toggle("oculto", tipo !== "defensa");
   $("ds-extra-coronas").classList.toggle("oculto", tipo !== "coronas");
   $("ds-extra-cartas").classList.toggle("oculto", tipo !== "cartas");
+  if (tipo === "cartas") dsPintarCartas();
 }
 $("ds-tipo").addEventListener("change", dsActualizarTipo);
 function dsLimpiarForm() {
@@ -1590,7 +1806,7 @@ $("d-crear").onclick = async () => {
   } catch (e) { msg(msgErr(e)); }
   b.disabled = false;
 };
-$("dinamicas").addEventListener("click", async (ev) => {
+async function clicDinamica(ev) {
   const b = ev.target.closest("[data-d]"); if (!b) return;
   const d = dinAdmin.find((x) => x.id === b.dataset.id); if (!d) return;
   const cerrar = b.dataset.d === "cerrar";
@@ -1602,7 +1818,113 @@ $("dinamicas").addEventListener("click", async (ev) => {
     if (r.fallos) aviso("Encuesta cerrada, pero " + r.fallos + " pagos fallaron. Se reintentan solos en unos minutos.");
     else aviso(cerrar ? "Encuesta cerrada." + (d.pago === "alcerrar" ? " Se pagó a " + num(r.pagados) + (r.pagados === 1 ? " jugador." : " jugadores.") : "") : "Encuesta reabierta.", true);
     await cargarDinamicas();
+    cargarClanContenido();
   } catch (e) { aviso(msgErr(e)); b.disabled = false; }
+}
+$("dinamicas").addEventListener("click", clicDinamica);
+$("clan-din-lista").addEventListener("click", clicDinamica);
+
+// ---------- Clan: crear eventos, torneos y dinámicas solo para los miembros ----------
+let cevDatos = [];
+const ESTADO_CEV = { abierto: "Abierto", "en-juego": "En juego", finalizado: "Finalizado", cancelado: "Cancelado" };
+function cdActualizarTipo() {
+  const enc = $("cd-tipo").value === "encuesta";
+  $("cd-ev").classList.toggle("oculto", enc);
+  $("cd-din").classList.toggle("oculto", !enc);
+}
+$("cd-tipo").addEventListener("change", cdActualizarTipo);
+function cdActualizarCorrectas() {
+  const sel = $("cd-correcta"), previa = sel.value;
+  const ops = $("cd-opciones").value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 6);
+  sel.innerHTML = '<option value="">Sin respuesta correcta (todos los que respondan ganan)</option>' + ops.map((o, i) => '<option value="' + i + '">' + esc(o) + "</option>").join("");
+  if (previa !== "" && Number(previa) < ops.length) sel.value = previa;
+}
+$("cd-opciones").addEventListener("input", cdActualizarCorrectas);
+$("cd-crear").onclick = async () => {
+  const msg = (t, ok) => { $("cd-msg").textContent = t; $("cd-msg").className = "msg" + (ok ? " ok" : ""); };
+  const tipo = $("cd-tipo").value;
+  const titulo = $("cd-titulo").value.trim();
+  const descripcion = $("cd-desc").value.trim();
+  if (titulo.length < 3) { msg("Ponle un título (mínimo 3 letras)."); return; }
+  let llamada;
+  if (tipo === "encuesta") {
+    const pregunta = $("cd-pregunta").value.trim();
+    const opciones = $("cd-opciones").value.split("\n").map((x) => x.trim()).filter(Boolean);
+    const premio = Number($("cd-premio").value), costo = Number($("cd-costo").value || 0);
+    const cierra = $("cd-cierra-din").value ? new Date($("cd-cierra-din").value).getTime() : null;
+    const pago = $("cd-pago").value;
+    const correcta = $("cd-correcta").value === "" ? null : Number($("cd-correcta").value);
+    if (pregunta.length < 3) { msg("Escribe la pregunta."); return; }
+    if (opciones.length < 2 || opciones.length > 6) { msg("Pon entre 2 y 6 opciones, una por línea."); return; }
+    if (!Number.isInteger(premio) || premio < 1 || premio > 1000) { msg("El premio debe ser un número entero entre 1 y 1000 monedas."); return; }
+    if (!Number.isInteger(costo) || costo < 0 || costo > 1000) { msg("La entrada debe ser un número entero entre 0 y 1000 créditos."); return; }
+    if (correcta !== null && !(correcta >= 0 && correcta < opciones.length)) { msg("La opción correcta no es válida."); return; }
+    if (!confirm("Se publicará solo para los miembros del clan.\n\n" + (correcta !== null ? "Solo cobra quien acierte «" + opciones[correcta] + "»; quien falle pierde y no puede volver a votar.\n" : "Cada jugador que responda recibirá ") + premio + (premio === 1 ? " moneda" : " monedas") + (pago === "alcerrar" ? " cuando la dinámica cierre." : " al responder.") + "\n\n¿Crear?")) return;
+    llamada = () => llamar("adminDinamicaCrear", { titulo, descripcion, soloClan: true, pregunta, opciones, premio, costo, cierra, pago, correcta });
+  } else {
+    const cupoTxt = $("cd-cupo").value.trim();
+    const cupo = cupoTxt === "" ? null : Number(cupoTxt);
+    const cierra = $("cd-cierra-ev").value ? new Date($("cd-cierra-ev").value).getTime() : null;
+    if (cupo !== null && (!Number.isInteger(cupo) || cupo < 1 || cupo > 1000)) { msg("El cupo debe ser un número entero entre 1 y 1000 (o déjalo vacío)."); return; }
+    if (!confirm("Se publicará solo para los miembros del clan:\n«" + titulo + "» (" + (tipo === "torneo" ? "torneo" : "evento") + ").\n\n¿Crear?")) return;
+    llamada = () => llamar("adminClanEventoCrear", { tipo, titulo, descripcion, premioTxt: $("cd-premio-txt").value, codigo: $("cd-codigo").value, cupo, cierra });
+  }
+  const b = $("cd-crear"); b.disabled = true; msg("");
+  try {
+    await llamada();
+    ["cd-titulo", "cd-desc", "cd-cupo", "cd-cierra-ev", "cd-premio-txt", "cd-codigo", "cd-pregunta", "cd-opciones", "cd-cierra-din"].forEach((i) => { $(i).value = ""; });
+    $("cd-premio").value = "1"; $("cd-costo").value = "0"; $("cd-pago").value = "inmediato"; cdActualizarCorrectas();
+    registroCargado = false;
+    msg("Creado. Ya lo ven los miembros del clan.", true);
+    await cargarClanContenido();
+  } catch (e) { msg(msgErr(e)); }
+  b.disabled = false;
+};
+function tarjetaClanEvento(e) {
+  const id = esc(e.id), v = e.estadoVisto;
+  const pill = '<span class="pill' + (v === "abierto" ? " ok" : v === "cancelado" ? " mal" : "") + '">' + esc(ESTADO_CEV[v] || v) + "</span>";
+  const btn = (acc, txt, cls) => '<button type="button" class="btn' + cls + '" data-cev="' + acc + '" data-id="' + id + '">' + txt + "</button>";
+  const botones = e.estado === "abierto" ? btn("en-juego", "Cerrar inscripciones", "") + btn("finalizado", "Finalizar", "") + btn("cancelado", "Cancelar", " peligro")
+    : e.estado === "en-juego" ? btn("finalizado", "Finalizar", "") + btn("cancelado", "Cancelar", " peligro") : "";
+  const ins = e.inscritos.length ? "<details><summary>Ver inscritos (" + e.inscritos.length + ')</summary><ul class="reg">' + e.inscritos.map((x) =>
+    "<li><b>" + esc(x.nombre) + "</b> · " + esc("#" + String(x.tag).replace(/^#/, "")) + "<small>se inscribió " + esc(fecha(x.t)) + "</small></li>").join("") + "</ul></details>" : "";
+  const sm = (t) => '<small style="display:block;color:var(--suave)">' + t + "</small>";
+  return '<li class="perfil"><b>' + esc(e.titulo) + "</b> " + pill +
+    sm((e.tipo === "torneo" ? "Torneo" : "Evento") + (e.premioTxt ? " · Premio: " + esc(e.premioTxt) : "") + " · Inscritos: " + num(e.inscritosN) + (e.cupo ? " de " + num(e.cupo) : " (sin cupo)") + (e.cierra ? " · cierra " + esc(fecha(e.cierra)) : "")) +
+    (e.descripcion ? sm(esc(e.descripcion)) : "") + (e.codigo ? sm("Código: <b>" + esc(e.codigo) + "</b>") : "") + ins +
+    (botones ? '<div class="acciones-c">' + botones + "</div>" : "") + "</li>";
+}
+async function cargarClanContenido() {
+  const ulEv = $("clan-ev-lista"), ulDin = $("clan-din-lista");
+  try {
+    const [r, rd] = await Promise.all([llamar("adminClanEventos"), llamar("adminDinamicas")]);
+    cevDatos = r.eventos || [];
+    dinAdmin = rd.dinamicas || [];
+    ulEv.innerHTML = cevDatos.length ? cevDatos.map(tarjetaClanEvento).join("") : '<li class="vacio">Todavía no hay eventos ni torneos para el clan.</li>';
+    const dc = dinAdmin.filter((d) => d.soloClan);
+    ulDin.innerHTML = dc.length ? dc.map(tarjetaDinamica).join("") : '<li class="vacio">Todavía no hay dinámicas para el clan.</li>';
+  } catch (e) {
+    const m = '<li class="vacio">' + esc(msgErr(e)) + "</li>";
+    ulEv.innerHTML = m; ulDin.innerHTML = "";
+  }
+}
+$("clan-ev-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-cev]"); if (!b) return;
+  const e = cevDatos.find((x) => x.id === b.dataset.id); if (!e) return;
+  const estado = b.dataset.cev;
+  const textos = {
+    "en-juego": "¿Cerrar las inscripciones de «" + e.titulo + "»? Nadie más podrá entrar.",
+    finalizado: "¿Finalizar «" + e.titulo + "»? Ya no se podrá cambiar.",
+    cancelado: "¿Cancelar «" + e.titulo + "»? Los jugadores lo verán como cancelado y ya no se podrá cambiar.",
+  };
+  if (!confirm(textos[estado])) return;
+  b.disabled = true;
+  try {
+    await llamar("adminClanEventoEstado", { id: e.id, estado });
+    registroCargado = false;
+    aviso(estado === "en-juego" ? "Inscripciones cerradas." : estado === "finalizado" ? "Finalizado." : "Cancelado.", true);
+    await cargarClanContenido();
+  } catch (err) { aviso(msgErr(err)); b.disabled = false; }
 });
 
 // ---------- Clan Legión Real: aceptar y expulsar ----------
@@ -1673,6 +1995,7 @@ async function cargarMiembrosClanAdmin() {
 async function cargarClan() {
   const ul = $("clan-lista");
   cargarMiembrosClanAdmin();
+  cargarClanContenido();
   try {
     const r = await llamar("adminClanSolicitudes");
     clanAdmin = r.solicitudes || [];
@@ -1730,6 +2053,8 @@ function textoAccion(r) {
     case "torneo-estado": return "Cambió el estado de un torneo" + (r.despues ? " a " + r.despues : "");
     case "torneo-ganador": return "Declaró al ganador de un torneo";
     case "torneo-premio": return "Marcó el pase de un torneo como entregado";
+    case "torneo-pago-creditos": return "Finalizó un torneo y pagó " + num(r.monto) + " créditos por victorias";
+    case "creditos-torneo": return "Ganó " + num(r.monto) + " créditos por sus victorias en un torneo";
     case "dinamica-crear": return "Creó una dinámica con premio de " + num(r.monto) + (r.monto === 1 ? " moneda" : " monedas");
     case "dinamica-estado": return "Cambió el estado de una dinámica" + (r.despues ? " a " + r.despues : "");
     case "referidos-activar": return "Activó los referidos para este perfil";
